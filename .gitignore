@@ -1,0 +1,33 @@
+# 忽略：依赖、运行时数据、日志、二进制、真实配置
+node_modules/
+package-lock.json.bak
+
+# 运行时状态与数据（含聊天记录，绝不提交）
+state/
+data/
+logs/
+tmp/
+*.log
+*.db
+*.db-wal
+*.db-shm
+*.jsonl
+
+# 第三方二进制与打包产物
+node.exe
+index.mjs
+native/
+client/
+
+# 真实配置（用 config.example.json 代替）
+config.json
+config.json.bak-*
+*.bak
+*.bak-*
+
+# 环境变量与凭据
+.env
+.env.*
+*.pem
+*.key
+secrets.*

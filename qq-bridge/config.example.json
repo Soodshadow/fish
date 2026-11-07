@@ -1,0 +1,288 @@
+{
+  "dsh": {
+    "baseUrl": "http://127.0.0.1:3080",
+    "provider": "deepseek-account",
+    "model": "deepseek-flash",
+    "reasoningEffort": "max",
+    "authToken": "",
+    "authHeader": "authorization",
+    "authPrefix": "Bearer",
+    "allowRemote": false
+  },
+  "role": {
+    "maxInjectChars": 8000
+  },
+  "snowluma": {
+    "wsUrl": "ws://127.0.0.1:3001",
+    "httpUrl": "http://127.0.0.1:3000",
+    "accessToken": "",
+    "followDiscoveredEndpoint": true,
+    "silenceWarnMs": 600000,
+    "launcherPath": "D:\\fish\\snow\\launcher.bat",
+    "homeDir": "D:\\fish\\snow"
+  },
+  "ownerQQ": 0,
+  "sessionCwd": "",
+  "agentPreset": "qq-chat",
+  "workspaceTitle": "QQ 鑱婂ぉ",
+  "allow": {
+    "private": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "groups": [
+      0,
+      0,
+      0
+    ]
+  },
+  "deny": {
+    "private": [],
+    "groups": []
+  },
+  "allowAllWhenEmpty": false,
+  "ackMessage": "",
+  "sendDelayMs": 300,
+  "questionTimeoutMs": 300000,
+  "consolePort": 3100,
+  "consoleToken": "",
+  "pricing": {
+    "models": {
+      "my-relay-model": {
+        "label": "鎴戠殑涓浆妯″瀷",
+        "off": {
+          "cacheHit": 0.5,
+          "cacheMiss": 3,
+          "output": 9
+        }
+      }
+    }
+  },
+  "security": {
+    "interceptNotify": true
+  },
+  "slang": {
+    "enabled": true,
+    "extractMinMessages": 10,
+    "extractCooldownMs": 300000,
+    "inferenceThresholds": [
+      2,
+      4,
+      8
+    ],
+    "injectMax": 8,
+    "learnerPreset": "qq-chat",
+    "workspaceTitle": "QQ 榛戣瘽瀛︿範",
+    "autoResearch": true
+  },
+  "social": {
+    "enabled": true,
+    "maxReplyChars": 500,
+    "mustReplyKeywords": [
+      "deepseek",
+      "灏忛哺楸?,
+      "澶ц偉楸?,
+      "椴搁奔",
+      "d鎸囧",
+      "鍦ㄥ悧"
+    ],
+    "contextWindow": 40,
+    "triggerProbability": 0.1,
+    "activeCheckMinMs": 8000,
+    "activeCheckMaxMs": 30000,
+    "idleWindowMs": 360000,
+    "idleRetryProbability": 0.4,
+    "proactiveEnabled": true,
+    "proactiveIdleThresholdMs": 1800000,
+    "proactiveCheckMinMs": 2700000,
+    "proactiveCheckMaxMs": 5400000,
+    "proactiveProbability": 0.2,
+    "activeReplyDelayMinMs": 1000,
+    "activeReplyDelayMaxMs": 5000,
+    "activeDurationEnabled": true,
+    "activeDurationMinMs": 1200000,
+    "activeDurationMaxMs": 3000000,
+    "skipProbability": 0.05,
+    "surrenderProbability": 0,
+    "idleRetryWaitMs": 120000,
+    "burstEnabled": true,
+    "burstIntervalMinMs": 1000,
+    "burstIntervalMaxMs": 3000,
+    "longGapProbability": 0.2,
+    "longGapMinMs": 5000,
+    "longGapMaxMs": 10000
+  },
+  "socialV2": {
+    "enabled": true,
+    "autoReplyCheckMs": 30000,
+    "agentPreset": "qq-chat-v2",
+    "provideRecommendations": true,
+    "tools": {
+      "getPrompt": true,
+      "getUnread": true,
+      "getRecent": true,
+      "socialState": true,
+      "sendGroup": true,
+      "sendPrivate": true,
+      "reply": true,
+      "sendBurst": true,
+      "sendMessage": true,
+      "waitMessages": true,
+      "feedback": true,
+      "getMyRecent": true,
+      "getMessageDetail": true,
+      "getActiveMembers": true,
+      "setWakeConfig": true,
+      "markRead": true,
+      "memory": true,
+      "slangQuery": true,
+      "slangSubmit": true,
+      "getImages": true,
+      "getForwardMsg": true,
+      "sendPoke": true,
+      "listStickers": true,
+      "getStickerImage": true,
+      "sendSticker": true,
+      "setStickerRemark": false,
+      "stickerNote": true,
+      "collectSticker": true,
+      "getSelfImage": true,
+      "sendVoice": false
+    },
+    "wake": {
+      "defaultMode": "diving",
+      "preSleepWaitEnabled": true,
+      "preSleepWaitMs": 300000,
+      "staleChatMinutes": 10,
+      "staleSilentMinutes": 120,
+      "recommendedDefaultInfinite": true,
+      "sleepMinMs": 60000,
+      "sleepMaxMs": 0,
+      "recommendedSleepMinMs": 300000,
+      "recommendedSleepMaxMs": 7200000,
+      "recommendedProbability": 0.05,
+      "recommendedKeywords": [
+        "灏忛哺楸?,
+        "DeepSeek",
+        "deepseek",
+        "DS",
+        "D鑰佸笀",
+        "d鑰佸笀",
+        "D鎸囧",
+        "d鎸囧",
+        "D甯堝倕",
+        "d甯堝倕",
+        "娣卞害姹傜储",
+        "澶ц偉楸?,
+        "椴搁奔",
+        "DeepSeek V3",
+        "DeepSeek R1",
+        "R1"
+      ],
+      "recommendedAtMention": true,
+      "recommendedNameMention": true,
+      "recommendedQuestion": true,
+      "recommendedPoke": true,
+      "recommendedHint": "濡傛灉浣犺娼滄按锛屾帹鑽愬厛璋冪敤 qq_wait_for_messages(timeoutMs=300000) 瀹屾垚涓€娆℃矇鐫″墠瑙傚療锛? 鍒嗛挓鍐呮病浜鸿璇濆氨鍙互璁剧疆涓嬩竴娆″敜閱掑苟娌夌潯锛涜嫢鏈熼棿鏈変汉鍙戞柊娑堟伅锛屽厛鏌ョ湅 newMessages锛屽垽鏂笉闇€瑕佷綘鍙備笌鍙洿鎺ユ矇鐫★紝鑻ュ弬涓庝簡鍒欎笅娆℃兂鐫￠渶鍐嶇瓑瑙傚療绐楀彛銆傛綔姘存椂闀挎帹鑽?5~120 鍒嗛挓锛屾櫘閫氭秷鎭鐜?0.05锛汙/鍚嶅瓧/鍏抽敭璇?鎻愰棶鍞ら啋寤鸿淇濇寔寮€鍚€傞渶瑕佺瓑鐗瑰畾鏌愪汉/鏌愬嚑浜烘椂锛屽彲棰濆璁剧疆 triggers.speakerIds銆?,
+      "batchWindowMs": 8000,
+      "maxWakePerMinute": 1,
+      "maxWakePerHour": 12,
+      "noActionLimit": 3,
+      "maxWakeConfigReminders": 2
+    },
+    "send": {
+      "burstEnabled": true,
+      "burstMaxMessages": 8,
+      "burstIntervalMinMs": 1000,
+      "burstIntervalMaxMs": 3000,
+      "longGapProbability": 0.2,
+      "longGapMinMs": 5000,
+      "longGapMaxMs": 10000,
+      "maxSendPerMinute": 8,
+      "maxSendPerHour": 120,
+      "maxMessageChars": 500,
+      "maxGapMs": 10000,
+      "gapBaseMs": 800,
+      "gapPerCharMs": 20,
+      "recommendedHint": "鍗曟潯娑堟伅涓嶈鐢ㄧ┖鏍兼柇鍙ワ紝涓枃鐭彞鐢ㄩ€楀彿/椤垮彿鎴栫洿鎺ヨ繛鍐欙紱鍒嗘潯鏃舵瘡鏉￠兘瑕佽璧锋潵瀹屾暣锛屼笉瑕佹妸鍚屼竴鍙ヨ瘽鎷嗗埌涓ゆ潯閲岋紱鏅€氶棽鑱婂缓璁竴娆?1~3 鏉★紝鏉￠棿 1~3 绉掞紱璁叉晠浜?鍥炲繂鍙互 5~10 绉掗棿闅旓紱涓嶈杩炵画鍒峰睆銆?
+    },
+    "wait": {
+      "defaultMs": 30000,
+      "minMs": 5000,
+      "maxMs": 600000,
+      "defaultQuietMs": 8000,
+      "minQuietAfterNewMs": 10000
+    },
+    "sticker": {
+      "enabled": true,
+      "syncTtlMs": 60000,
+      "maxListCount": 100,
+      "includeInPrompt": true,
+      "promptMaxStickers": 8,
+      "collect": {
+        "enabled": true,
+        "maxPerMinute": 2,
+        "maxPerHour": 10,
+        "maxRemarkChars": 20
+      }
+    },
+    "voice": {
+      "enabled": false,
+      "dir": "audio",
+      "maxSeconds": 300,
+      "maxBytes": 20971520,
+      "maxPerMinute": 2,
+      "maxPerHour": 10,
+      "allowAbsolutePath": false,
+      "defaultVolume": 1,
+      "loudness": "normal",
+      "ffmpegPath": "E:/evc褰曞睆/EVCapture/ffmpeg.exe",
+      "autoReadback": true
+    },
+    "proactive": {
+      "enabled": true,
+      "checkIntervalMinMs": 1800000,
+      "checkIntervalMaxMs": 5400000,
+      "idleThresholdMs": 900000,
+      "probability": 0.3
+    },
+    "feedback": {
+      "maxLength": 500,
+      "notifyOwnerOnError": false
+    },
+    "context": {
+      "recentLimit": 100,
+      "unreadLimit": 30,
+      "contextWindow": 40,
+      "inlineWakeMessages": true,
+      "wakeMessageLimit": 24,
+      "wakeRecentLimit": 8,
+      "wakeMaxChars": 12000
+    },
+    "initialPromptMaxChars": 2000,
+    "media": {
+      "maxBytes": 8388608,
+      "maxPixels": 64000000,
+      "maxCount": 5,
+      "normalize": true,
+      "maxModelBytes": 1048576,
+      "maxLongEdge": 1280,
+      "gifFrames": 6,
+      "gifTile": 240,
+      "normalizeTimeoutMs": 25000
+    }
+  },
+  "webSearch": {
+    "provider": "auto",
+    "apiKey": "",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "baseURL": "",
+    "model": "deepseek-v4-flash",
+    "maxUses": 5,
+    "maxTokens": 4096,
+    "maxResults": 8,
+    "timeoutMs": 35000
+  }
+}

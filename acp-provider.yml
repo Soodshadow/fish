@@ -1,0 +1,6 @@
+# ACP profile 的模型 provider 覆盖：用账号登录（deepseek-account）而不是官方 API key
+# 启动：node bin.js --profile acp --patch D:\fish\acp-provider.yml
+- id: acp
+  config:
+    provider: deepseek-account
+    model: deepseek-flash

@@ -1,0 +1,34 @@
+{
+  "fish": {
+    "name": "小鲸鱼",
+    "version": "0.1.0",
+    "description": "小鱼插件：QQ 通道 / 记忆 / 角色 / 管理工具 / 设备控制 / 搜索 / 控制台"
+  },
+  "host": "dsh",
+  "components": {
+    "qq-channel": {
+      "enabled": true
+    },
+    "memory": {
+      "enabled": true,
+      "dir": "memory"
+    },
+    "persona": {
+      "enabled": true,
+      "dir": "roles"
+    },
+    "admin-tools": {
+      "enabled": true
+    },
+    "device-control": {
+      "enabled": true
+    },
+    "search": {
+      "enabled": true
+    },
+    "console": {
+      "enabled": true,
+      "port": 3100
+    }
+  }
+}

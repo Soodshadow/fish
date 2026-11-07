@@ -1,0 +1,33 @@
+{
+  "name": "dsh-fish",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "小鱼（QQ 小鲸鱼）的 DSH 插件：QQ 通道 / 记忆 / 角色 / 管理工具 / 设备控制 / 搜索 / 控制台，模块化组件架构",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "fish",
+    "qq",
+    "agent"
+  ],
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "core",
+    "components",
+    "config",
+    "hosts",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

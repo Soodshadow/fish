@@ -1,0 +1,12 @@
+# dsh-fish —— 小鱼插件（DSH 插件入口）
+# 挂载后向 DSH 注册系统提示词段：角色卡（D:\fish\roles）+ 核心记忆（D:\fish\memory\MEMORY-BLUEPRINT.md）。
+# 桥接（D:\fish\qq-bridge）作为传输层独立运行；本插件负责鱼的人设/记忆/工具面配置。
+- insert:
+    - id: fish
+      name: dsh-fish
+      config:
+        enabled: true
+        memoryDir: 'D:\fish\memory'
+        roleDir: 'D:\fish\roles'
+        roleFile: '小鲸鱼.md'
+        maxInjectChars: 12000
