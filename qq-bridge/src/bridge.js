@@ -57,7 +57,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-// D:\fish 共享数据根：memory / roles / snow 等数据目录在程序目录之外（D:\fish）。
+// 共享数据根：memory / roles / snow 等数据目录在程序目录之外（项目根目录）。
 const FISH_HOME = path.resolve(ROOT, '..');
 const STATE_DIR = path.join(ROOT, 'state');
 const STATE_FILE = path.join(STATE_DIR, 'sessions.json');
@@ -10418,7 +10418,7 @@ async function main() {
     return `【你的身份】你在 QQ 上的昵称是${label}${idText}。${callBits}；群名片可能与昵称不同，at/引用段里带${id ? ` ${id} ` : '你的 QQ 号'}就是在叫你。\n\n`;
   }
 
-  // 记忆蓝图：唯一来源 D:\fish\memory\MEMORY-BLUEPRINT.md。
+  // 记忆蓝图：唯一来源 <项目根>/memory/MEMORY-BLUEPRINT.md。
   // 每次唤醒读一次（mtime+size 缓存，不重复读盘）；你改 md，她下一轮就按新内容来。
   let blueprintCache = { key: '', text: '' };
   function memoryBlueprintText() {
@@ -11246,7 +11246,7 @@ async function main() {
         } else {
           const roleFile = path.join(FISH_HOME, 'roles', name + '.md');
           if (!fs.existsSync(roleFile)) {
-            await sendToQQ(key, `角色「${name}」不存在。角色文件放 D:\fish\roles 目录。`);
+            await sendToQQ(key, `角色「${name}」不存在。角色文件放 ${FISH_HOME} 下的 roles 目录。`);
           } else {
             writeRoleState(name, roleState.mode);
             await sendToQQ(key, `已切换角色：${name}。`);
