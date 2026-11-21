@@ -183,15 +183,32 @@ function fmtRows(rows) {
 }
 
 /**
- * 唤醒时回看聊天记录：取最近 N 分钟的消息，而不是「上次说话到现在」。
- * 她可能几天没开口，用 lastSeenAt 会捞到很久以前的内容；这里只看最近一段，
- * 保证她醒来时掌握的是刚发生的对话。
+ * 唤醒时回看的「刚才这段连续对话」。
+ * 不按固定时长切：从最新一条往前翻，遇到超过 maxGapMs 的空档就停（那是话题断了），
+ * 再受 maxItems / maxAgeMs 兜底。聊了半小时的一段能完整拿到，隔了一夜的就不要了。
  */
-function recentWindow(store, key, minutes = 30, limit = 20) {
-  const since = Date.now() - Math.max(1, minutes) * 60000;
-  const rows = store.searchMessages({ key, since, limit });
-  if (!rows.length) return { block: '', count: 0 };
-  return { block: fmtRows(rows), count: rows.length };
+function takeRecentConversation(list, options = {}) {
+  const { maxItems = 14, maxGapMs = 10 * 60000, maxAgeMs = 3 * 3600000 } = options;
+  const now = Date.now();
+  const picked = [];
+  let previous = now;
+  for (let i = list.length - 1; i >= 0 && picked.length < maxItems; i -= 1) {
+    const item = list[i];
+    if (now - item.t > maxAgeMs) break;
+    if (previous - item.t > maxGapMs) break;
+    picked.unshift(item);
+    previous = item.t;
+  }
+  return picked;
+}
+
+function formatConversation(items) {
+  return items.map((item) => {
+    const d = new Date(item.t);
+    const stamp = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const who = item.role === 'assistant' ? '你' : '对方';
+    return `[${stamp}] ${who}：${String(item.text).slice(0, 140)}`;
+  }).join('\n');
 }
 
 /**
@@ -795,6 +812,25 @@ async function bootstrap(ctx) {
     return attention.get(key);
   }
 
+  // ── 休眠时的群聊：只看不存 ──
+  // 路人聊天不落库（她不在场，存了也没用还占空间）；
+  // 只在内存里留一小段，等她被叫醒时用来接上下文。
+  const recentTalk = new Map();
+  const RECENT_TALK_LIMIT = 80;
+  function rememberTalk(key, role, text) {
+    const value = String(text || '').trim();
+    if (!value) return;
+    let list = recentTalk.get(key);
+    if (!list) { list = []; recentTalk.set(key, list); }
+    list.push({ t: Date.now(), role: role === 'assistant' ? 'assistant' : 'user', text: value });
+    if (list.length > RECENT_TALK_LIMIT) list.splice(0, list.length - RECENT_TALK_LIMIT);
+  }
+  function recentContext(key, options) {
+    const list = recentTalk.get(key) || [];
+    if (!list.length) return '';
+    return formatConversation(takeRecentConversation(list, options));
+  }
+
   // ── 敏感记忆审批 ──
   // 别人（非主人）问到不属于当前会话的记忆时，这一轮回话不直接发出去，
   // 而是先私聊问主人：1 = 发，2 = 不发。主人私聊不受影响。
@@ -1047,9 +1083,9 @@ async function bootstrap(ctx) {
         attState.needsPersona = false;
       }
       if (attState.pendingSnapshot) {
-        // 唤醒时回看最近 30 分钟的聊天记录，而不是「上次说话到现在」的旧内容
-        const snap = recentWindow(store, key, 30, 20);
-        if (snap.block) parts.push(`【你刚醒来，群里最近在聊】\n${snap.block}`);
+        // 唤醒时回看「刚才这段连续对话」（按空档切，不按固定时长）
+        const snapText = recentContext(key, { maxItems: 14 });
+        if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
       }
       if (needsRecall(transcript)) {
@@ -1210,6 +1246,7 @@ async function bootstrap(ctx) {
     if (sent) {
       const records = [{ t: now, key: context.key, platform: 'qq', conv: context.key, role: 'assistant', text: replyText, source: 's2' }];
       const result = store.appendMessages(records);
+      rememberTalk(context.key, 'assistant', replyText);
       log(`remember ${context.key}: +${result.added} skipped=${result.skipped}`);
     } else if (choseSilence) {
       log(`she stayed silent in ${context.key}`);
@@ -1368,9 +1405,7 @@ async function bootstrap(ctx) {
       return;
     }
 
-    // 所有（白名单内的）消息都进脑子，哪怕这次不接
-    store.appendMessages([{ t: Date.now(), key, platform: 'qq', conv: key, role: 'user', text, source: 's2' }]);
-
+    // 只有「跟她有关的」消息才写进库；休眠时路人聊天只在内存里留一段（见 rememberTalk）
     if (kind === 'group') {
       const groupId = String(event.group_id ?? '');
       log(`group event group=${groupId} from=${event.user_id} self=${selfId} msg=${JSON.stringify(event.message ?? event.raw_message ?? '').slice(0, 260)}`);
@@ -1388,7 +1423,15 @@ async function bootstrap(ctx) {
       const repliedToHer = Array.isArray(event.message)
         && event.message.some((part) => part?.type === 'reply' && ownMessageIds.has(String(part.data?.id ?? '')));
       const picked = !mentioned && !wasAwake && Math.random() < wakeChance;
-      if (!mentioned && !repliedToHer && !picked && !wasAwake && !ownerMedia && !ownerText) { log(`group ${groupId} not mentioned, skip`); return; }
+      if (!mentioned && !repliedToHer && !picked && !wasAwake && !ownerMedia && !ownerText) {
+        // 她不在场：不落库，只在内存留一段给她醒来接上下文
+        rememberTalk(key, 'user', text);
+        log(`group ${groupId} 休眠中，不打扰（不入库）`);
+        return;
+      }
+      // 跟她有关：落库 + 记入内存上下文
+      store.appendMessages([{ t: Date.now(), key, platform: 'qq', conv: key, role: 'user', text, source: 's2' }]);
+      rememberTalk(key, 'user', text);
       // 爸爸发的图片：直接入队合并，不再「攒着等她醒」。
       // 以前攒着，结果她醒来只看到图，看不到图前后那几段话 —— 那几段会被当成过场忽略。
       if (ownerMedia) {
@@ -1447,6 +1490,9 @@ async function bootstrap(ctx) {
         ? '主人'
         : (event.sender?.card || event.sender?.nickname || String(event.user_id));
       log(`RECV ${key} (${privateSender}): ${text.slice(0, 140)}`);
+      // 私聊全是冲她来的，直接落库
+      store.appendMessages([{ t: Date.now(), key, platform: 'qq', conv: key, role: 'user', text, source: 's2' }]);
+      rememberTalk(key, 'user', text);
       enqueuePrivate(key, { event, text, sender: privateSender });
       return;
     }
@@ -1526,9 +1572,9 @@ async function bootstrap(ctx) {
         if (attState) attState.needsPersona = false;
       }
       if (attState?.pendingSnapshot) {
-        // 同上：唤醒时只看最近 30 分钟，避免拿着几小时前的旧消息回话
-        const snap = recentWindow(store, key, 30, 20);
-        if (snap.block) parts.push(`【你刚醒来，群里最近在聊】\n${snap.block}`);
+        // 同上：唤醒时只看「刚才这段连续对话」
+        const snapText = recentContext(key, { maxItems: 14 });
+        if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
       }
       // 只有出现回忆信号时才翻长期记忆
@@ -1658,8 +1704,8 @@ async function bootstrap(ctx) {
       const last = store.searchMessages({ key, limit: 1 })[0];
       if (!last || now - last.t > 20 * 60000) continue;
       if (last.t <= (a.lastSeenAt ?? 0)) continue;
-      // 主动看群也只看最近一小时，避免拿着早上聊的接话
-      const snap = recentWindow(store, key, 60, 20).block;
+      // 主动看群也只看「刚才这段连续对话」
+      const snap = recentContext(key, { maxItems: 20, maxAgeMs: 2 * 3600000 });
       if (!snap) continue;
       try {
         const sessionId = await ensureSession(key);
