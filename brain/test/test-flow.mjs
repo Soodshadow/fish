@@ -8,6 +8,7 @@ const LOG = 'D:/fish/brain/state/flow-bridge.log';
 const STATE = 'D:/fish/brain/state/flow-bridge-sessions.json';
 const TEMP_DATA = 'D:/fish/brain/state/test-flow-data';
 const TEMP_MEMORY = 'D:/fish/brain/state/test-flow-memory.md';
+process.env.FISH_S2_MEMORY_SYNC = '0';
 process.env.FISH_S2_LOG = LOG;
 process.env.FISH_S2_STATE = STATE;
 process.env.FISH_S2_PRIVATE_MERGE_MS = '120';

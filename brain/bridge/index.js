@@ -9,7 +9,7 @@ import path from 'node:path';
 import WebSocketImpl from 'ws';
 import { SnowLumaWebSocketClient } from '@snowluma/sdk';
 import { Store } from '../core/store.js';
-import { backupMemory } from '../core/backup.js';
+import { syncMemoryRepo, memoryRepoStatus } from '../core/memory-sync.js';
 import { StickerStore } from './stickers.js';
 import { Diary } from './diary.js';
 import { MemoryExtractor } from './memory-extractor.js';
@@ -699,28 +699,60 @@ async function bootstrap(ctx) {
   const proactiveMax = Math.max(proactiveMin, Number(process.env.FISH_S2_PROACTIVE_MAX ?? brainCfg.proactiveMaxMinutes ?? 110));
   log(`loaded mappings: ${Object.keys(state.sessions || {}).length}; groups: ${groups.join(',') || '(none)'}; wakeChance: ${wakeChance}; engage: ${engageMinutes}min; activeWindow: ${activeWindowMinutes}min; passive: ${passiveChance}; proactive: ${proactiveMin}-${proactiveMax}min`);
 
-  // ── 每日记忆备份 ──
-  // 她的记忆、聊天记录、配置只在这台电脑上，没有任何异地副本；每天打一份到本地。
-  const BACKUP_DIR = process.env.FISH_S2_BACKUP_DIR || 'D:\\fish\\backups\\memory';
-  const BACKUP_KEEP = Math.max(1, Number(process.env.FISH_S2_BACKUP_KEEP ?? brainCfg.backupKeep ?? 30));
-  const BACKUP_SOURCES = [
-    MEMORY_FILE,
-    'D:\\fish\\memory\\MEMORY-BLUEPRINT.md',
-    CONFIG_FILE,
-    path.join(DATA_DIR, 'messages.jsonl'),
-    path.join(DATA_DIR, 'people.json'),
-    path.join(DATA_DIR, 'conversations.json'),
-    STATE_FILE,
+  // ── 记忆同步：每周一次，把记忆/人设/配置/聊天归档提交到私密 GitHub 仓库 ──
+  // 「每周一上线后」：以周一为一周起点，本周还没同步过就同步；周一没开机，下次上线补上。
+  // 本地只留一个 git 工作目录，不放第二份备份副本。
+  const MEMORY_REPO_DIR = process.env.FISH_S2_MEMORY_REPO_DIR || 'D:\\fish-memory';
+  const MEMORY_REPO_URL = process.env.FISH_S2_MEMORY_REPO
+    || 'https://gh-proxy.com/https://github.com/Soodshadow/fish-memory';
+  const MEMORY_REPO_SOURCES = [
+    [MEMORY_FILE, 'MEMORY-ARCHIVE.md'],
+    ['D:\\fish\\memory\\MEMORY-BLUEPRINT.md', 'MEMORY-BLUEPRINT.md'],
+    [CONFIG_FILE, 'config.json'],
+    [path.join(DATA_DIR, 'messages.jsonl'), 'messages.jsonl'],
+    [path.join(DATA_DIR, 'people.json'), 'people.json'],
+    [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
+    [STATE_FILE, 's2-sessions.json'],
   ];
-  function runMemoryBackup() {
+  const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
+
+  /** ISO 周的周一日期，作为「本周」的键。 */
+  function weekKey(date = new Date()) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const offset = (d.getDay() + 6) % 7; // 周一 = 0
+    d.setDate(d.getDate() - offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // 启动时从仓库最后一次提交恢复「上次同步是哪一周」，避免重启后重复推一次
+  let lastMemorySyncWeek = '';
+  try {
+    const status = memoryRepoStatus(MEMORY_REPO_DIR);
+    const found = status.ok ? /(\d{4})-(\d{2})-(\d{2})/.exec(status.last || '') : null;
+    if (found) lastMemorySyncWeek = weekKey(new Date(`${found[1]}-${found[2]}-${found[3]}T12:00:00`));
+  } catch {}
+
+  function runMemorySync() {
+    if (!memorySyncEnabled) return;
+    const week = weekKey();
+    if (lastMemorySyncWeek === week) return;
     try {
-      const result = backupMemory({ sources: BACKUP_SOURCES, dir: BACKUP_DIR, keep: BACKUP_KEEP, log });
-      if (!result.skipped) log(`memory backup ${result.dir} (${result.copied} files)`);
+      const result = syncMemoryRepo({
+        workDir: MEMORY_REPO_DIR,
+        sources: MEMORY_REPO_SOURCES,
+        remote: MEMORY_REPO_URL,
+        log,
+      });
+      if (result.pushed) {
+        lastMemorySyncWeek = week;
+        log(`memory sync (week ${week}) ${result.committed ? 'committed' : 'unchanged'} (${result.copied} files)`);
+      }
     } catch (error) {
-      log(`memory backup failed: ${error?.message ?? error}`);
+      log(`memory sync failed: ${error?.message ?? error}`);
     }
   }
-  runMemoryBackup();
+  runMemorySync();
 
   const personaText = (() => {
     try { return fs.readFileSync('D:\\fish\\memory\\MEMORY-BLUEPRINT.md', 'utf8'); } catch { return ''; }
@@ -1723,7 +1755,7 @@ async function bootstrap(ctx) {
     proactiveCheck().catch((error) => log(`proactive error: ${error?.message ?? error}`));
   }, 60000);
   // 每小时检查一次「今天备份过没有」，当天已有就跳过
-  const backupTimer = setInterval(runMemoryBackup, 3600000);
+  const backupTimer = setInterval(runMemorySync, 3600000);
   // 记忆不再定时全量扫描：每轮结束后由 scheduleMemoryJudge 按事件判断
   ctx.effect(() => () => {
     disposed = true;

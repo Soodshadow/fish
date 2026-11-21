@@ -7,6 +7,7 @@ import fs from 'node:fs';
 const SMOKE_LOG = 'D:/fish/brain/state/smoke-bridge.log';
 const SMOKE_STATE = 'D:/fish/brain/state/smoke-bridge-sessions.json';
 
+process.env.FISH_S2_MEMORY_SYNC = '0';
 process.env.FISH_S2_LOG = SMOKE_LOG;
 process.env.FISH_S2_STATE = SMOKE_STATE;
 process.env.FISH_S2_WS = 'ws://127.0.0.1:1';
