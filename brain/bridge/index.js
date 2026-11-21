@@ -182,12 +182,16 @@ function fmtRows(rows) {
   }).join('\n');
 }
 
-function fmtSince(store, key, since, limit = 20) {
-  const rows = store.searchMessages({ key, limit: 60 })
-    .filter((m) => m.t > (since ?? 0))
-    .slice(0, limit);
-  if (!rows.length) return '';
-  return fmtRows(rows);
+/**
+ * 唤醒时回看聊天记录：取最近 N 分钟的消息，而不是「上次说话到现在」。
+ * 她可能几天没开口，用 lastSeenAt 会捞到很久以前的内容；这里只看最近一段，
+ * 保证她醒来时掌握的是刚发生的对话。
+ */
+function recentWindow(store, key, minutes = 30, limit = 20) {
+  const since = Date.now() - Math.max(1, minutes) * 60000;
+  const rows = store.searchMessages({ key, since, limit });
+  if (!rows.length) return { block: '', count: 0 };
+  return { block: fmtRows(rows), count: rows.length };
 }
 
 /**
@@ -1043,8 +1047,9 @@ async function bootstrap(ctx) {
         attState.needsPersona = false;
       }
       if (attState.pendingSnapshot) {
-        const snap = fmtSince(store, key, attState.lastSeenAt, 20);
-        if (snap) parts.push(`【你不在的这段时间，群里聊了】\n${snap}`);
+        // 唤醒时回看最近 30 分钟的聊天记录，而不是「上次说话到现在」的旧内容
+        const snap = recentWindow(store, key, 30, 20);
+        if (snap.block) parts.push(`【你刚醒来，群里最近在聊】\n${snap.block}`);
         attState.pendingSnapshot = false;
       }
       if (needsRecall(transcript)) {
@@ -1521,8 +1526,9 @@ async function bootstrap(ctx) {
         if (attState) attState.needsPersona = false;
       }
       if (attState?.pendingSnapshot) {
-        const snap = fmtSince(store, key, attState.lastSeenAt, 20);
-        if (snap) parts.push(`【你不在的这段时间，群里聊了】\n${snap}`);
+        // 同上：唤醒时只看最近 30 分钟，避免拿着几小时前的旧消息回话
+        const snap = recentWindow(store, key, 30, 20);
+        if (snap.block) parts.push(`【你刚醒来，群里最近在聊】\n${snap.block}`);
         attState.pendingSnapshot = false;
       }
       // 只有出现回忆信号时才翻长期记忆
@@ -1652,7 +1658,8 @@ async function bootstrap(ctx) {
       const last = store.searchMessages({ key, limit: 1 })[0];
       if (!last || now - last.t > 20 * 60000) continue;
       if (last.t <= (a.lastSeenAt ?? 0)) continue;
-      const snap = fmtSince(store, key, a.lastSeenAt, 20);
+      // 主动看群也只看最近一小时，避免拿着早上聊的接话
+      const snap = recentWindow(store, key, 60, 20).block;
       if (!snap) continue;
       try {
         const sessionId = await ensureSession(key);
