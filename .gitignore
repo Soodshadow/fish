@@ -41,3 +41,8 @@ brain/backup-*/
 brain/bridge/node_modules/
 mock/
 OPTIMIZATION-*.md
+
+# 个人内容：她的角色卡、工作笔记、记忆，不进公开仓库
+roles/小鲸鱼.md
+交接/
+memory/
