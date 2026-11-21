@@ -24,7 +24,6 @@ fish/
 │
 ├─ snow/                         # SnowLuma 启动适配（第三方，本体需自行安装）
 ├─ roles/                        # 通用角色卡
-├─ legacy/                       # 旧版启动脚本（依赖已移除的 qq-bridge，仅留档）
 ├─ acp-provider.yml              # DSH 的 provider 覆盖
 ├─ DEPLOY.md                     # 部署指南
 └─ README.md

@@ -9,6 +9,7 @@ import path from 'node:path';
 import WebSocketImpl from 'ws';
 import { SnowLumaWebSocketClient } from '@snowluma/sdk';
 import { Store } from '../core/store.js';
+import { backupMemory } from '../core/backup.js';
 import { StickerStore } from './stickers.js';
 import { Diary } from './diary.js';
 import { MemoryExtractor } from './memory-extractor.js';
@@ -697,6 +698,29 @@ async function bootstrap(ctx) {
   const proactiveMin = Math.max(1, Number(process.env.FISH_S2_PROACTIVE_MIN ?? brainCfg.proactiveMinMinutes ?? 50));
   const proactiveMax = Math.max(proactiveMin, Number(process.env.FISH_S2_PROACTIVE_MAX ?? brainCfg.proactiveMaxMinutes ?? 110));
   log(`loaded mappings: ${Object.keys(state.sessions || {}).length}; groups: ${groups.join(',') || '(none)'}; wakeChance: ${wakeChance}; engage: ${engageMinutes}min; activeWindow: ${activeWindowMinutes}min; passive: ${passiveChance}; proactive: ${proactiveMin}-${proactiveMax}min`);
+
+  // ── 每日记忆备份 ──
+  // 她的记忆、聊天记录、配置只在这台电脑上，没有任何异地副本；每天打一份到本地。
+  const BACKUP_DIR = process.env.FISH_S2_BACKUP_DIR || 'D:\\fish\\backups\\memory';
+  const BACKUP_KEEP = Math.max(1, Number(process.env.FISH_S2_BACKUP_KEEP ?? brainCfg.backupKeep ?? 30));
+  const BACKUP_SOURCES = [
+    MEMORY_FILE,
+    'D:\\fish\\memory\\MEMORY-BLUEPRINT.md',
+    CONFIG_FILE,
+    path.join(DATA_DIR, 'messages.jsonl'),
+    path.join(DATA_DIR, 'people.json'),
+    path.join(DATA_DIR, 'conversations.json'),
+    STATE_FILE,
+  ];
+  function runMemoryBackup() {
+    try {
+      const result = backupMemory({ sources: BACKUP_SOURCES, dir: BACKUP_DIR, keep: BACKUP_KEEP, log });
+      if (!result.skipped) log(`memory backup ${result.dir} (${result.copied} files)`);
+    } catch (error) {
+      log(`memory backup failed: ${error?.message ?? error}`);
+    }
+  }
+  runMemoryBackup();
 
   const personaText = (() => {
     try { return fs.readFileSync('D:\\fish\\memory\\MEMORY-BLUEPRINT.md', 'utf8'); } catch { return ''; }
@@ -1698,10 +1722,13 @@ async function bootstrap(ctx) {
   const proactiveTimer = setInterval(() => {
     proactiveCheck().catch((error) => log(`proactive error: ${error?.message ?? error}`));
   }, 60000);
+  // 每小时检查一次「今天备份过没有」，当天已有就跳过
+  const backupTimer = setInterval(runMemoryBackup, 3600000);
   // 记忆不再定时全量扫描：每轮结束后由 scheduleMemoryJudge 按事件判断
   ctx.effect(() => () => {
     disposed = true;
     try { clearInterval(proactiveTimer); } catch {}
+    try { clearInterval(backupTimer); } catch {}
     try { if (reconnectTimer) clearTimeout(reconnectTimer); } catch {}
     try {
       for (const timer of memoryTimers.values()) clearTimeout(timer);
