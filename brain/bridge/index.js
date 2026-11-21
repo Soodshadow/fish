@@ -1063,6 +1063,10 @@ async function bootstrap(ctx) {
       parts.push(`【群里刚才聊了】\n${transcript}`);
       if (roster) parts.push(`【在场的人】${roster}；你是 ${SELF_QQ}。`);
       parts.push(`【先看清楚】你的 QQ 是 ${SELF_QQ}。@${SELF_QQ} 才是叫你；@别人是在叫别人。别人说的话、别人的事，不要认领成自己的。`);
+      if (fromOwner) {
+        // 爸爸在群里说话：默认当他在跟她讲，别再装没看见
+        parts.push('【爸爸在群里说话】他在跟你讲话，接一句；没想接也说点短的，别当没看见。');
+      }
       parts.push('【要不要接】没人明确叫你，接不接看你：有话就自然接一句，不想接就只回复 [SILENT]。别为了刷存在感硬插。');
 
       const promptText = parts.join('\n\n');
@@ -1362,13 +1366,16 @@ async function bootstrap(ctx) {
       const hasMedia = Array.isArray(event.message)
         && event.message.some((part) => part?.type === 'image' || part?.type === 'mface');
       const ownerMedia = hasMedia && String(event.user_id) === OWNER_QQ;
+      // 爸爸在群里发文字也算「在跟她说话」。以前只把「发图」当信号，
+      // 结果他在群里连说四五句，她一句都不接，非得 @ 才醒。
+      const ownerText = !hasMedia && String(event.user_id) === OWNER_QQ && String(text).trim().length > 0;
       const mentioned = isAwake(event, selfId, readWakeWords());
       // 只认「引用的是她自己发过的消息」。以前任何 reply 段都算「回复她」，
       // 别人互相引用也会把她叫醒，这是群里乱插话的主要来源之一。
       const repliedToHer = Array.isArray(event.message)
         && event.message.some((part) => part?.type === 'reply' && ownMessageIds.has(String(part.data?.id ?? '')));
       const picked = !mentioned && !wasAwake && Math.random() < wakeChance;
-      if (!mentioned && !repliedToHer && !picked && !wasAwake && !ownerMedia) { log(`group ${groupId} not mentioned, skip`); return; }
+      if (!mentioned && !repliedToHer && !picked && !wasAwake && !ownerMedia && !ownerText) { log(`group ${groupId} not mentioned, skip`); return; }
       // 休眠时爸爸发的图片：只攒着，不唤醒、不调用模型；等她下次醒了一起看
       if (ownerMedia && !wasAwake && !mentioned && !repliedToHer && !picked) {
         a.pendingMedia = [...(a.pendingMedia || []), event].slice(-4);
@@ -1403,10 +1410,11 @@ async function bootstrap(ctx) {
         // 把攒着的普通群消息先处理掉，避免重复回
         await flushGroup(key);
       } else {
-        // 没被点名，但她刚说过话、群里还在聊：消息送进模型，让她自己判断接不接。
+        // 没被点名，但她刚说过话、群里还在聊，或者爸爸在说话：消息送进模型，让她自己判断接不接。
         // 节流交给合并队列（15 秒）和回复冷却（20 秒），不再用「45 秒一次」把话砍掉。
         const nowMs = Date.now();
-        if (nowMs >= (a.conversationUntil || 0)) {
+        const inConversation = nowMs < (a.conversationUntil || 0);
+        if (!inConversation && !ownerText) {
           log(`group ${groupId} 不在对话窗口，跳过（不进模型）`);
           return;
         }
@@ -1416,10 +1424,12 @@ async function bootstrap(ctx) {
           userId: String(event.user_id),
           messageId: String(event.message_id ?? ''),
           hasMedia,
+          owner: ownerText,
           t: nowMs,
           event,
         });
-        log(`group ${groupId} 对话窗口内入队（${textOf(event).trim().slice(0, 40) || '图片'}）`);
+        // 爸爸发文字：4 秒就合并（他在等你回话），其他人用默认窗口
+        log(`group ${groupId} ${ownerText ? '爸爸说话' : '对话窗口内'}入队（${textOf(event).trim().slice(0, 40) || '图片'}）`);
         return;
       }
     }
@@ -1529,6 +1539,9 @@ async function bootstrap(ctx) {
         // 以前只有合并批次那条路径会写「你是 <自己的 QQ>」，所以 @ 她时她反而认不清谁是谁。
         parts.push(`【在场的人】${sender}（${userId}）；你是 ${SELF_QQ}。`);
         parts.push(`【先看清楚】你的 QQ 是 ${SELF_QQ}。@${SELF_QQ} 才是叫你；@别人是在叫别人。别人说的话、别人的事，不要认领成自己的。`);
+        if (String(userId) === OWNER_QQ) {
+          parts.push('【爸爸在群里说话】他在跟你讲，接一句；没想接也说点短的，别当没看见。');
+        }
       }
       const hint = writingHint(text);
       if (hint) parts.push(hint);

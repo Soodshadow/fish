@@ -232,6 +232,26 @@ ok('送进模型的就是这个人的话', followPrompt.includes('那你们两�
 emitTurn(prompts.at(-1)?.sessionId, '没聊什么');
 await sleep(300);
 
+// ── 5c. 爸爸在群里发文字（没 @她）也要进模型 ──
+console.log('\n[5c] 爸爸群里发言');
+const promptsBeforeOwnerGroup = prompts.length;
+bot.groupHandler({
+  self_id: '10000',
+  user_id: '10001',
+  group_id: '20001',
+  message_id: '9104',
+  sender: { card: '月虚影' },
+  message: [{ type: 'text', data: { text: '群友其实就像一个ai模型一样' } }],
+});
+// 爸爸的消息走 4 秒合并窗口
+await sleep(4600);
+ok('爸爸发文字会进模型', prompts.length === promptsBeforeOwnerGroup + 1, `${promptsBeforeOwnerGroup} -> ${prompts.length}`);
+const ownerGroupPrompt = prompts.at(-1)?.content?.find((part) => part.type === 'text')?.text ?? '';
+ok('prompt 里有爸爸在说话的提示', ownerGroupPrompt.includes('爸爸在群里说话'), ownerGroupPrompt.slice(-200));
+ok('prompt 里带上了他说的话', ownerGroupPrompt.includes('ai模型'), ownerGroupPrompt.slice(-200));
+emitTurn(prompts.at(-1)?.sessionId, '确实像');
+await sleep(300);
+
 // ── 6. 空回复不污染队列 ──
 console.log('\n[6] 空回复不污染队列');
 bot.privateHandler(privateEvent('先说一句', '9004'));
