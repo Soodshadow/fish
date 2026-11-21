@@ -31,3 +31,13 @@ config.json.bak-*
 *.pem
 *.key
 secrets.*
+
+# 小鱼 brain 运行时（聊天记录、日志、表情包、本地配置）
+brain/state/
+brain/data/
+brain/stickers/
+brain/bridge-workspace/
+brain/backup-*/
+brain/bridge/node_modules/
+mock/
+OPTIMIZATION-*.md

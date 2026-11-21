@@ -1,0 +1,20 @@
+{
+  "allow": {
+    "private": ["10001"],
+    "groups": ["20001"]
+  },
+  "ownerQQ": "10001",
+  "selfQQ": "10000",
+  "groupWakeChance": 0.05,
+  "wakeWords": ["小鲸鱼", "鲸鱼", "大肥鱼", "蓝莓", "小鱼", "丫头", "鱼鱼"],
+  "groupEngageMinutes": 5,
+  "activeWindowMinutes": 10,
+  "batchWaitMs": 15000,
+  "replyCooldownMs": 20000,
+  "memoryExtract": true,
+  "approveSensitiveRecall": true,
+  "approvalTimeoutMs": 300000,
+  "approvalMaxPending": 5,
+  "proactiveMinMinutes": 50,
+  "proactiveMaxMinutes": 110
+}
