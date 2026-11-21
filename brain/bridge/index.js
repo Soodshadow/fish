@@ -1060,6 +1060,14 @@ async function bootstrap(ctx) {
         .map(([id, name]) => `${name}（${id}）`).join('、');
       const hint = writingHint(transcript);
       if (hint) parts.push(hint);
+      // 爸爸说的话单独拎出来：夹在群里刷屏中间时，她容易只回最后一张图
+      if (fromOwner) {
+        const ownerLines = items.filter((item) => item.owner)
+          .map((item) => item.text)
+          .filter(Boolean)
+          .join('\n');
+        if (ownerLines.trim()) parts.push(`【爸爸刚说的】\n${ownerLines.slice(0, 600)}`);
+      }
       parts.push(`【群里刚才聊了】\n${transcript}`);
       if (roster) parts.push(`【在场的人】${roster}；你是 ${SELF_QQ}。`);
       parts.push(`【先看清楚】你的 QQ 是 ${SELF_QQ}。@${SELF_QQ} 才是叫你；@别人是在叫别人。别人说的话、别人的事，不要认领成自己的。`);
@@ -1376,14 +1384,8 @@ async function bootstrap(ctx) {
         && event.message.some((part) => part?.type === 'reply' && ownMessageIds.has(String(part.data?.id ?? '')));
       const picked = !mentioned && !wasAwake && Math.random() < wakeChance;
       if (!mentioned && !repliedToHer && !picked && !wasAwake && !ownerMedia && !ownerText) { log(`group ${groupId} not mentioned, skip`); return; }
-      // 休眠时爸爸发的图片：只攒着，不唤醒、不调用模型；等她下次醒了一起看
-      if (ownerMedia && !wasAwake && !mentioned && !repliedToHer && !picked) {
-        a.pendingMedia = [...(a.pendingMedia || []), event].slice(-4);
-        a.pendingSnapshot = true;
-        log(`爸爸发图：攒着等她醒（当前 ${a.pendingMedia.length} 张）`);
-        return;
-      }
-      // 醒着时爸爸发的图片：合并成一次，不一张一次调用
+      // 爸爸发的图片：直接入队合并，不再「攒着等她醒」。
+      // 以前攒着，结果她醒来只看到图，看不到图前后那几段话 —— 那几段会被当成过场忽略。
       if (ownerMedia) {
         enqueueGroup(key, {
           text: textOf(event).trim() || '[图片]',
