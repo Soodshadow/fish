@@ -1,5 +1,9 @@
 # fish · 小鲸鱼QQ 机器人部署集
 
+> **2026-11 结构调整**：桥接已经从独立的 `qq-bridge/` 迁进 `brain/`，
+> 作为 DSH 桌面端的**进程内插件**运行（不再需要 DSH Web 和独立桥接进程）。
+> 新的核心在 [`brain/`](brain/)，`qq-bridge/` 已移除。
+
 把 **SnowLuma（QQ 网关）**、**qq-bridge（消息路由桥）**、**DSH Web（会话大脑）** 三件套组装成一个可独立启动的 QQ 机器人项目。
 
 > 本仓库只包含**代码与文档**。运行时数据（聊天记录数据库、日志、状态）、第三方二进制（`node.exe`、SnowLuma 的 `index.mjs` 与前端资源）、以及真实配置中的 token 与账号信息均已排除或替换为占位符。
@@ -15,7 +19,14 @@ fish/
 ├─ acp-provider.yml              # DSH 的 provider 覆盖（账号登录而非 API key）
 ├─ DEPLOY.md                     # ★ 从零部署指南
 │
-├─ qq-bridge/                    # ★ 核心：QQ 消息桥
+├─ brain/                        # ★ 核心：桌面端桥接（DSH 进程内插件）
+│  ├─ bridge/                    #   QQ ⇄ DSH 会话：收消息、组 prompt、发回复
+│  ├─ core/                      #   共享消息库（append-only JSONL）
+│  ├─ plugin/                    #   DSH 左侧栏「记忆」面板（宿主 + 客户端）
+│  ├─ scripts/                   #   运维脚本（预设自检、旧记忆导入）
+│  ├─ test/                      #   回归测试（91 项，假 QQ，不连真实网关）
+│  └─ config.example.json        #   配置模板（复制为 config.json）
+│├─ qq-bridge/                    # （已移除，见上）
 │  ├─ src/                       #   桥接主逻辑（QQ ⇄ DSH）
 │  ├─ scripts/                   #   运维与测试脚本（90+ 个）
 │  ├─ plugins/                   #   可插拔扩展
