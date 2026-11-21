@@ -14,11 +14,6 @@
 
 ```
 fish/
-├─ start.bat / stop.bat          # 一键启动 / 停止（Windows）
-├─ start-fish-guard.vbs          # 守护：崩溃自动拉起
-├─ acp-provider.yml              # DSH 的 provider 覆盖（账号登录而非 API key）
-├─ DEPLOY.md                     # ★ 从零部署指南
-│
 ├─ brain/                        # ★ 核心：桌面端桥接（DSH 进程内插件）
 │  ├─ bridge/                    #   QQ ⇄ DSH 会话：收消息、组 prompt、发回复
 │  ├─ core/                      #   共享消息库（append-only JSONL）
@@ -26,23 +21,13 @@ fish/
 │  ├─ scripts/                   #   运维脚本（预设自检、旧记忆导入）
 │  ├─ test/                      #   回归测试（91 项，假 QQ，不连真实网关）
 │  └─ config.example.json        #   配置模板（复制为 config.json）
-│├─ qq-bridge/                    # （已移除，见上）
-│  ├─ src/                       #   桥接主逻辑（QQ ⇄ DSH）
-│  ├─ scripts/                   #   运维与测试脚本（90+ 个）
-│  ├─ plugins/                   #   可插拔扩展
-│  ├─ docs/                      #   设计与协议文档
-│  ├─ public/ 、assets/          #   控制台页面与素材
-│  ├─ config.example.json        #   配置模板（复制为 config.json 再填）
-│  └─ README.md                  #   详细说明
 │
 ├─ snow/                         # SnowLuma 启动适配（第三方，本体需自行安装）
-│  ├─ start-fish.bat
-│  ├─ launcher.bat
-│  └─ start-snow-hidden.vbs
-│
-├─ plugin/                       # DSH 插件（侧栏面板）
-├─ roles/                        # 人设（角色扮演提示词）
-└─ 交接/                         # 开发记录与任务清单
+├─ roles/                        # 通用角色卡
+├─ legacy/                       # 旧版启动脚本（依赖已移除的 qq-bridge，仅留档）
+├─ acp-provider.yml              # DSH 的 provider 覆盖
+├─ DEPLOY.md                     # 部署指南
+└─ README.md
 ```
 
 ## 快速开始
