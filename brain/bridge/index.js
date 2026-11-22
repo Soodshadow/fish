@@ -831,6 +831,23 @@ async function bootstrap(ctx) {
     return formatConversation(takeRecentConversation(list, options));
   }
 
+  /**
+   * 这一批消息「之前」的最近一段对话。
+   * 之前只在唤醒时注入一次，导致她后面被问「我刚才说了什么」时只能翻自己的旧会话。
+   * 现在每轮都给：从内存取（含她不在场的聊天），排除最近 2 分钟（那是当前这批）；
+   * 内存还没热（刚重启）就回落到库里她参与过的对话。
+   */
+  function historyContext(key, maxItems = 12, beforeT = Date.now()) {
+    const list = (recentTalk.get(key) || []).filter((item) => item.t < beforeT);
+    const fromMemory = formatConversation(takeRecentConversation(list, {
+      maxItems,
+      maxGapMs: 30 * 60000,
+      maxAgeMs: 6 * 3600000,
+    }));
+    if (fromMemory) return fromMemory;
+    return fmtLastTalk(store, key, maxItems);
+  }
+
   // ── 敏感记忆审批 ──
   // 别人（非主人）问到不属于当前会话的记忆时，这一轮回话不直接发出去，
   // 而是先私聊问主人：1 = 发，2 = 不发。主人私聊不受影响。
@@ -1087,6 +1104,11 @@ async function bootstrap(ctx) {
         const snapText = recentContext(key, { maxItems: 14 });
         if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
+      }
+      // 每轮都补一段「这之前聊了什么」，否则她被问「我刚才说了什么」只能翻旧会话
+      {
+        const history = historyContext(key, 12, items[0]?.t ?? Date.now());
+        if (history) parts.push(`【这之前群里在聊】\n${history}`);
       }
       if (needsRecall(transcript)) {
         const recall = diaryRecall(diary, transcript, key);
@@ -1576,6 +1598,11 @@ async function bootstrap(ctx) {
         const snapText = recentContext(key, { maxItems: 14 });
         if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
+      }
+      if (kind === 'group') {
+        // 每轮都补一段「这之前聊了什么」（排除当前这条）
+        const history = historyContext(key, 12, Date.now() - 1000);
+        if (history) parts.push(`【这之前群里在聊】\n${history}`);
       }
       // 只有出现回忆信号时才翻长期记忆
       if (needsRecall(text)) {
