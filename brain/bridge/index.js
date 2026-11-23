@@ -817,13 +817,43 @@ async function bootstrap(ctx) {
   // 只在内存里留一小段，等她被叫醒时用来接上下文。
   const recentTalk = new Map();
   const RECENT_TALK_LIMIT = 80;
-  function rememberTalk(key, role, text) {
+  function rememberTalk(key, role, text, when) {
     const value = String(text || '').trim();
     if (!value) return;
     let list = recentTalk.get(key);
     if (!list) { list = []; recentTalk.set(key, list); }
-    list.push({ t: Date.now(), role: role === 'assistant' ? 'assistant' : 'user', text: value });
+    list.push({ t: Number(when) || Date.now(), role: role === 'assistant' ? 'assistant' : 'user', text: value });
     if (list.length > RECENT_TALK_LIMIT) list.splice(0, list.length - RECENT_TALK_LIMIT);
+  }
+
+  /**
+   * 从 QQ 现场往上翻群聊天记录（不落库，只在叫醒她时拉一次）。
+   * OneBot 的 get_group_msg_history 直接问 SnowLuma 要最近的 N 条，
+   * 这样她醒来能看到「叫醒她之前」发生了什么，而不是从零开始。
+   */
+  async function fetchGroupHistory(key, groupId, count = 20) {
+    if (!bot || typeof bot.getGroupMessageHistory !== 'function') return '';
+    try {
+      const res = await bot.getGroupMessageHistory({ group_id: Number(groupId), count });
+      const messages = Array.isArray(res?.messages) ? res.messages : [];
+      if (!messages.length) return '';
+      const items = [];
+      for (const message of messages) {
+        const senderId = String(message?.sender?.user_id ?? message?.user_id ?? '');
+        if (senderId && senderId === SELF_QQ) continue; // 她自己说过的不再念一遍
+        const body = textOf(message).trim();
+        if (!body) continue;
+        const t = Number(message?.time) * 1000 || Date.now();
+        items.push({ t, role: 'user', text: body });
+        rememberTalk(key, 'user', body, t); // 塞进内存，后面几轮也看得到
+      }
+      if (!items.length) return '';
+      items.sort((a, b) => a.t - b.t);
+      return formatConversation(items.slice(-count));
+    } catch (error) {
+      log(`history fetch failed ${groupId}: ${error?.message ?? error}`);
+      return '';
+    }
   }
   function recentContext(key, options) {
     const list = recentTalk.get(key) || [];
@@ -1100,10 +1130,11 @@ async function bootstrap(ctx) {
         attState.needsPersona = false;
       }
       if (attState.pendingSnapshot) {
-        // 唤醒时回看「刚才这段连续对话」（按空档切，不按固定时长）
-        const snapText = recentContext(key, { maxItems: 14 });
-        if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
+        // 优先用从 QQ 现场拉到的历史；拉不到才退回内存缓冲
+        const snapText = attState.wakeHistory || recentContext(key, { maxItems: 14 });
+        if (snapText) parts.push(`【你醒来前群里在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
+        attState.wakeHistory = '';
       }
       // 每轮都补一段「这之前聊了什么」，否则她被问「我刚才说了什么」只能翻旧会话
       {
@@ -1475,6 +1506,9 @@ async function bootstrap(ctx) {
           a.pendingSnapshot = true;
           a.needsPersona = true; // 每次从睡着被叫醒，进 prompt 时重灌一次人设
           log(`wake ${groupId}（${mentioned ? '点名' : repliedToHer ? '回复她' : ownerMedia ? '爸爸发图' : '随机'}）`);
+          // 醒来第一件事：从 QQ 往上翻最近的聊天记录（不落库，只在需要时拉）
+          a.wakeHistory = await fetchGroupHistory(key, groupId, 20);
+          if (a.wakeHistory) log(`wake history ${groupId}: ${a.wakeHistory.split('\n').length} 行`);
         }
         a.awakeUntil = Date.now() + activeWindowMs;
         a.engagedWith = String(event.user_id);
@@ -1594,10 +1628,11 @@ async function bootstrap(ctx) {
         if (attState) attState.needsPersona = false;
       }
       if (attState?.pendingSnapshot) {
-        // 同上：唤醒时只看「刚才这段连续对话」
-        const snapText = recentContext(key, { maxItems: 14 });
-        if (snapText) parts.push(`【你刚醒来，群里最近在聊】\n${snapText}`);
+        // 同上：优先用现场拉到的历史
+        const snapText = attState.wakeHistory || recentContext(key, { maxItems: 14 });
+        if (snapText) parts.push(`【你醒来前群里在聊】\n${snapText}`);
         attState.pendingSnapshot = false;
+        attState.wakeHistory = '';
       }
       if (kind === 'group') {
         // 每轮都补一段「这之前聊了什么」（排除当前这条）
