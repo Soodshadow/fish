@@ -703,7 +703,7 @@ async function bootstrap(ctx) {
     workspace: WORKSPACE,
     log,
     stateFile: process.env.FISH_S2_DIARY_STATE || 'D:\\fish\\brain\\state\\self-diary.json',
-    file: process.env.FISH_S2_DIARY_FILE || 'D:\\fish\\memory\\DIARY.md',
+    dir: process.env.FISH_S2_DIARY_DIR || 'D:\\fish\\memory\\diary',
     hour: Math.max(0, Math.min(23, Number(process.env.FISH_S2_DIARY_HOUR ?? 22))),
   });
   const state = readState();
@@ -746,8 +746,18 @@ async function bootstrap(ctx) {
     [path.join(DATA_DIR, 'people.json'), 'people.json'],
     [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
     [STATE_FILE, 's2-sessions.json'],
-    ['D:\\fish\\memory\\DIARY.md', 'DIARY.md'],
   ];
+  // 日记是一天一个文件，同步时按目录展开
+  const DIARY_DIR = process.env.FISH_S2_DIARY_DIR || 'D:\\fish\\memory\\diary';
+  function memorySources() {
+    const list = [...MEMORY_REPO_SOURCES];
+    try {
+      for (const name of fs.readdirSync(DIARY_DIR)) {
+        if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name)) list.push([path.join(DIARY_DIR, name), `diary/${name}`]);
+      }
+    } catch {}
+    return list;
+  }
   const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
 
   /** ISO 周的周一日期，作为「本周」的键。 */
@@ -774,7 +784,7 @@ async function bootstrap(ctx) {
     try {
       const result = syncMemoryRepo({
         workDir: MEMORY_REPO_DIR,
-        sources: MEMORY_REPO_SOURCES,
+        sources: memorySources(),
         remote: MEMORY_REPO_URL,
         log,
       });

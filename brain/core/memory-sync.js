@@ -26,7 +26,10 @@ export function syncMemoryRepo({ workDir, sources = [], remote, branch = 'main',
       if (!source) continue;
       try {
         if (!fs.existsSync(source)) continue;
-        fs.copyFileSync(source, path.join(workDir, name));
+        const target = path.join(workDir, name);
+        // 名字里可能带子目录（比如 diary/2026-11-23.md）
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(source, target);
         result.copied += 1;
       } catch (error) {
         log(`memory sync copy failed ${path.basename(source)}: ${error?.message ?? error}`);

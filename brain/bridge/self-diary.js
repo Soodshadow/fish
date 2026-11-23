@@ -2,9 +2,9 @@
 // 桥接只负责：到点问一句、把当天素材给她、把写下来的存起来。
 // 不写也算一次选择 —— 记下来，当天不再打扰。
 import fs from 'node:fs';
+import path from 'node:path';
 
 const SKIP_MARK = /^\[(?:\s*(?:SKIP|不写|不写了|算了|今天不写)\s*)\]/i;
-const DAY_RE = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm;
 
 function todayStamp(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -23,14 +23,14 @@ function writeState(file, state) {
 }
 
 export class SelfDiary {
-  constructor({ ctx, controller, store, workspace, log, stateFile, file, hour = 22 }) {
+  constructor({ ctx, controller, store, workspace, log, stateFile, dir, hour = 22 }) {
     this.ctx = ctx;
     this.controller = controller;
     this.store = store;
     this.workspace = workspace;
     this.log = log;
     this.stateFile = stateFile;
-    this.file = file;
+    this.dir = dir;
     this.hour = hour;
     this.state = readState(stateFile);
     this.sessionId = this.state.diarySession || null;
@@ -103,25 +103,30 @@ export class SelfDiary {
     }).join('\n');
   }
 
+  dayFile(day) {
+    return path.join(this.dir, `${day}.md`);
+  }
+
   append(day, body) {
-    fs.mkdirSync(this.file.replace(/[\\/][^\\/]+$/, ''), { recursive: true });
-    const block = `\n## ${day}\n\n${body.trim()}\n`;
-    fs.appendFileSync(this.file, block, 'utf8');
+    fs.mkdirSync(this.dir, { recursive: true });
+    fs.writeFileSync(this.dayFile(day), `${body.trim()}\n`, 'utf8');
   }
 
   /** 最近 n 篇日记（给提示词注入）。 */
   recent(n = 3) {
-    let text = '';
-    try { text = fs.readFileSync(this.file, 'utf8'); } catch { return ''; }
-    const marks = [];
-    DAY_RE.lastIndex = 0;
-    let hit;
-    while ((hit = DAY_RE.exec(text)) !== null) marks.push({ day: hit[1], index: hit.index, end: DAY_RE.lastIndex });
-    if (!marks.length) return '';
-    return marks.slice(-n).map((mark, i) => {
-      const next = marks[marks.indexOf(mark) + 1];
-      const body = text.slice(mark.end, next ? next.index : text.length).trim();
-      return body ? `${mark.day}：${body}` : '';
+    let names = [];
+    try {
+      names = fs.readdirSync(this.dir).filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name)).sort();
+    } catch {
+      return '';
+    }
+    return names.slice(-n).map((name) => {
+      try {
+        const body = fs.readFileSync(path.join(this.dir, name), 'utf8').trim();
+        return body ? `${name.replace(/\.md$/, '')}：${body}` : '';
+      } catch {
+        return '';
+      }
     }).filter(Boolean).join('\n\n');
   }
 
