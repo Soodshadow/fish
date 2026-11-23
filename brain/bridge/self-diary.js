@@ -1,10 +1,11 @@
 // 她的日记：每天由她自己决定写不写、写什么。
-// 桥接只负责：到点问一句、把当天素材给她、把写下来的存起来。
-// 不写也算一次选择 —— 记下来，当天不再打扰。
+// 桥接只负责：到点问一句、把当天素材给她、把写下来的记到「日记本」里。
+// 日记本是一个固定文件（memory/diary/日记.md），按日期分节往下写。
 import fs from 'node:fs';
 import path from 'node:path';
 
 const SKIP_MARK = /^\[(?:\s*(?:SKIP|不写|不写了|算了|今天不写)\s*)\]/i;
+const SECTION_RE = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm;
 
 function todayStamp(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -22,8 +23,24 @@ function writeState(file, state) {
   } catch {}
 }
 
+/** 把日记本拆成 日期 -> 正文。 */
+function splitSections(text) {
+  const marks = [];
+  SECTION_RE.lastIndex = 0;
+  let hit;
+  while ((hit = SECTION_RE.exec(text)) !== null) {
+    marks.push({ day: hit[1], start: SECTION_RE.lastIndex, headerStart: hit.index });
+  }
+  const out = new Map();
+  for (let i = 0; i < marks.length; i += 1) {
+    const end = i + 1 < marks.length ? marks[i + 1].headerStart : text.length;
+    out.set(marks[i].day, text.slice(marks[i].start, end).trim());
+  }
+  return out;
+}
+
 export class SelfDiary {
-  constructor({ ctx, controller, store, workspace, log, stateFile, dir, hour = 22 }) {
+  constructor({ ctx, controller, store, workspace, log, stateFile, dir, bookName = '日记.md', hour = 22 }) {
     this.ctx = ctx;
     this.controller = controller;
     this.store = store;
@@ -31,6 +48,7 @@ export class SelfDiary {
     this.log = log;
     this.stateFile = stateFile;
     this.dir = dir;
+    this.file = path.join(dir, bookName);
     this.hour = hour;
     this.state = readState(stateFile);
     this.sessionId = this.state.diarySession || null;
@@ -103,31 +121,30 @@ export class SelfDiary {
     }).join('\n');
   }
 
-  dayFile(day) {
-    return path.join(this.dir, `${day}.md`);
-  }
-
+  /** 往日记本里写：同一天重写会替换当天那节，不重复。 */
   append(day, body) {
     fs.mkdirSync(this.dir, { recursive: true });
-    fs.writeFileSync(this.dayFile(day), `${body.trim()}\n`, 'utf8');
+    let text = '';
+    try { text = fs.readFileSync(this.file, 'utf8'); } catch {}
+    const sections = splitSections(text);
+    sections.set(day, String(body || '').trim());
+    const ordered = [...sections.entries()]
+      .filter(([, value]) => value)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+    fs.writeFileSync(this.file, `${ordered.map(([d, value]) => `## ${d}\n\n${value}\n`).join('\n')}\n`, 'utf8');
   }
 
-  /** 最近 n 篇日记（给提示词注入）。 */
+  /** 最近 n 篇（给提示词注入）。 */
   recent(n = 3) {
-    let names = [];
-    try {
-      names = fs.readdirSync(this.dir).filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name)).sort();
-    } catch {
-      return '';
-    }
-    return names.slice(-n).map((name) => {
-      try {
-        const body = fs.readFileSync(path.join(this.dir, name), 'utf8').trim();
-        return body ? `${name.replace(/\.md$/, '')}：${body}` : '';
-      } catch {
-        return '';
-      }
-    }).filter(Boolean).join('\n\n');
+    let text = '';
+    try { text = fs.readFileSync(this.file, 'utf8'); } catch { return ''; }
+    const sections = splitSections(text);
+    return [...sections.entries()]
+      .filter(([, value]) => value)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-n)
+      .map(([day, value]) => `${day}：${value}`)
+      .join('\n\n');
   }
 
   /** 到点就问一句；她自己决定写不写。 */

@@ -1,4 +1,5 @@
 // 她自己写日记的回归测试：不连模型，用假 controller / ctx。
+// 日记本 = memory/diary/日记.md，按日期分节往下写（不是一天一个文件）。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -42,53 +43,62 @@ function makeFixture(reply) {
   return { ctx, controller, store };
 }
 
-console.log('\n[1] 会写的时候：一天一个文件');
+console.log('\n[1] 写进同一个日记本');
 {
   const { ctx, controller, store } = makeFixture('今天有点累，但还行。');
   const diary = new SelfDiary({ ctx, controller, store, workspace: root, log: () => {}, stateFile: path.join(root, 's1.json'), dir });
   await diary.maybeWrite(new Date('2026-11-23T23:00:00'));
-  const file = path.join(dir, '2026-11-23.md');
-  ok('文件按日期生成', fs.existsSync(file), fs.readdirSync(dir).join(','));
-  ok('内容是她的原文', fs.readFileSync(file, 'utf8').includes('今天有点累'));
+  ok('目录里只有一本', fs.readdirSync(dir).join(',') === '日记.md', fs.readdirSync(dir).join(','));
+  const text = fs.readFileSync(path.join(dir, '日记.md'), 'utf8');
+  ok('按日期分节', text.includes('## 2026-11-23'), text.slice(0, 80));
+  ok('内容是她的原文', text.includes('今天有点累'));
   ok('记下当天已处理', diary.state.lastDay === '2026-11-23');
-
-  // 再写一天：直接调 append，验证是两个文件、不互相覆盖
-  diary.append('2026-11-24', '第二天的内容');
-  ok('第二天生成新文件', fs.existsSync(path.join(dir, '2026-11-24.md')), fs.readdirSync(dir).join(','));
-  ok('第一天的还在', fs.readFileSync(file, 'utf8').includes('今天有点累'));
 }
 
-console.log('\n[2] 选择不写');
+console.log('\n[2] 第二天接着写，不覆盖第一篇');
+{
+  const diary = new SelfDiary({ ctx: { on: () => () => {} }, controller: {}, store: {}, workspace: root, log: () => {}, stateFile: path.join(root, 's2.json'), dir });
+  diary.append('2026-11-24', '第二天写的内容');
+  const text = fs.readFileSync(path.join(dir, '日记.md'), 'utf8');
+  ok('两节都在', text.includes('## 2026-11-23') && text.includes('## 2026-11-24'), text);
+  ok('第一篇没被吃掉', text.includes('今天有点累'));
+  ok('还是只有一本', fs.readdirSync(dir).length === 1);
+}
+
+console.log('\n[3] 同一天重写会替换');
+{
+  const diary = new SelfDiary({ ctx: { on: () => () => {} }, controller: {}, store: {}, workspace: root, log: () => {}, stateFile: path.join(root, 's3.json'), dir });
+  diary.append('2026-11-24', '改了一句话');
+  const text = fs.readFileSync(path.join(dir, '日记.md'), 'utf8');
+  ok('旧内容被替换', !text.includes('第二天写的内容') && text.includes('改了一句话'), text);
+  ok('别的日子还在', text.includes('## 2026-11-23'));
+  ok('没有重复的 11-24', text.split('## 2026-11-24').length - 1 === 1);
+}
+
+console.log('\n[4] 选择不写');
 {
   const dir2 = path.join(root, 'diary2');
   const { ctx, controller, store } = makeFixture('[SKIP]');
-  const diary = new SelfDiary({ ctx, controller, store, workspace: root, log: () => {}, stateFile: path.join(root, 's2.json'), dir: dir2 });
+  const diary = new SelfDiary({ ctx, controller, store, workspace: root, log: () => {}, stateFile: path.join(root, 's4.json'), dir: dir2 });
   await diary.maybeWrite(new Date('2026-11-23T23:10:00'));
-  ok('没有创建目录/文件', !fs.existsSync(dir2), fs.existsSync(dir2) ? fs.readdirSync(dir2).join(',') : '');
+  ok('没有创建日记本', !fs.existsSync(path.join(dir2, '日记.md')));
   ok('记下今天已处理', diary.state.lastDay === '2026-11-23');
 }
 
-console.log('\n[3] 不到点不写');
+console.log('\n[5] 不到点不写');
 {
   const { ctx, controller, store } = makeFixture('不该被写进去');
-  const diary = new SelfDiary({ ctx, controller, store, workspace: root, log: () => {}, stateFile: path.join(root, 's3.json'), dir: path.join(root, 'diary3') });
+  const diary = new SelfDiary({ ctx, controller, store, workspace: root, log: () => {}, stateFile: path.join(root, 's5.json'), dir: path.join(root, 'diary3') });
   await diary.maybeWrite(new Date('2026-11-23T15:00:00'));
   ok('白天不触发', !diary.state.lastDay);
 }
 
-console.log('\n[4] 最近几篇按日期取');
+console.log('\n[6] recent 取最近几篇');
 {
-  const dir4 = path.join(root, 'diary4');
-  fs.mkdirSync(dir4, { recursive: true });
-  fs.writeFileSync(path.join(dir4, '2026-11-20.md'), '星期一的事\n', 'utf8');
-  fs.writeFileSync(path.join(dir4, '2026-11-21.md'), '星期二的事\n', 'utf8');
-  fs.writeFileSync(path.join(dir4, '2026-11-22.md'), '星期三的事\n', 'utf8');
-  fs.writeFileSync(path.join(dir4, 'notes.txt'), '不是日记\n', 'utf8');
-  const diary = new SelfDiary({ ctx: { on: () => () => {} }, controller: {}, store: {}, workspace: root, log: () => {}, stateFile: path.join(root, 's4.json'), dir: dir4 });
+  const diary = new SelfDiary({ ctx: { on: () => () => {} }, controller: {}, store: {}, workspace: root, log: () => {}, stateFile: path.join(root, 's6.json'), dir });
   const recent = diary.recent(2);
-  ok('只取最近两篇', recent.includes('星期三的事') && recent.includes('星期二的事') && !recent.includes('星期一的事'), recent);
-  ok('忽略非日记文件', !recent.includes('不是日记'));
-  ok('带日期前缀', recent.includes('2026-11-22：'), recent);
+  ok('取到最近两篇', recent.includes('2026-11-23') && recent.includes('2026-11-24'), recent);
+  ok('带日期前缀', recent.includes('：'), recent);
 }
 
 fs.rmSync(root, { recursive: true, force: true });

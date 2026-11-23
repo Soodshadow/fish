@@ -747,15 +747,13 @@ async function bootstrap(ctx) {
     [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
     [STATE_FILE, 's2-sessions.json'],
   ];
-  // 日记是一天一个文件，同步时按目录展开
+  // 日记本是一个文件，放在 memory/diary/ 下
   const DIARY_DIR = process.env.FISH_S2_DIARY_DIR || 'D:\\fish\\memory\\diary';
+  const DIARY_BOOK = process.env.FISH_S2_DIARY_BOOK || '日记.md';
   function memorySources() {
     const list = [...MEMORY_REPO_SOURCES];
-    try {
-      for (const name of fs.readdirSync(DIARY_DIR)) {
-        if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name)) list.push([path.join(DIARY_DIR, name), `diary/${name}`]);
-      }
-    } catch {}
+    const book = path.join(DIARY_DIR, DIARY_BOOK);
+    if (fs.existsSync(book)) list.push([book, `diary/${DIARY_BOOK}`]);
     return list;
   }
   const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
