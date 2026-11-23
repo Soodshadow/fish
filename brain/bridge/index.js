@@ -849,6 +849,30 @@ async function bootstrap(ctx) {
   }
 
   /**
+   * 跨会话看群聊：私聊时也要知道她刚在群里说了什么。
+   * 群和私聊是两个 DSH 会话，上下文互不相通；这里把最近的群聊捞出来补上。
+   */
+  function groupContextAll(maxItems = 12, maxAgeMs = 4 * 3600000) {
+    const now = Date.now();
+    const items = [];
+    for (const [key, list] of recentTalk) {
+      if (!String(key).startsWith('group:')) continue;
+      for (const item of list) {
+        if (now - item.t <= maxAgeMs) items.push(item);
+      }
+    }
+    if (items.length) {
+      items.sort((a, b) => a.t - b.t);
+      return formatConversation(items.slice(-maxItems));
+    }
+    // 内存空（刚重启）就退回库里她参与的群消息
+    const rows = (Array.isArray(store?.messages) ? store.messages : [])
+      .filter((m) => String(m.key || '').startsWith('group:'));
+    if (!rows.length) return '';
+    return fmtRows(rows.slice(-maxItems));
+  }
+
+  /**
    * 从 QQ 现场往上翻群聊天记录（不落库，只在叫醒她时拉一次）。
    * OneBot 的 get_group_msg_history 直接问 SnowLuma 要最近的 N 条，
    * 这样她醒来能看到「叫醒她之前」发生了什么，而不是从零开始。
@@ -1680,6 +1704,11 @@ async function bootstrap(ctx) {
         if (String(userId) === OWNER_QQ) {
           parts.push('【爸爸在群里说话】他在跟你讲，接一句；没想接也说点短的，别当没看见。');
         }
+      }
+      // 私聊接不上群里刚说的话：把最近的群聊也给她看（群和私聊是两个会话，互不串台）
+      if (kind === 'private') {
+        const groupTalk = groupContextAll(12);
+        if (groupTalk) parts.push(`【你刚才在群里聊的】\n${groupTalk}`);
       }
       const hint = writingHint(text);
       if (hint) parts.push(hint);

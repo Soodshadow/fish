@@ -257,6 +257,10 @@ await sleep(300);
 console.log('\n[6] 空回复不污染队列');
 bot.privateHandler(privateEvent('先说一句', '9004'));
 await sleep(MERGE_WAIT);
+{
+  const privatePrompt = prompts.at(-1)?.content?.find((part) => part.type === 'text')?.text ?? '';
+  ok('私聊能看到刚才群里的对话', privatePrompt.includes('你刚才在群里聊的'), privatePrompt.slice(-260));
+}
 emitTurn(prompts.at(-1)?.sessionId, '');
 await sleep(200);
 bot.privateHandler(privateEvent('再说一句', '9005'));
