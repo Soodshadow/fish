@@ -804,9 +804,11 @@ async function bootstrap(ctx) {
    * 身份注入：人设蓝图 + 最近几天她记得的事 +（换新会话时）上次聊到哪。
    * 以前 diaryRecent() 写了却从没被调用，等于新会话开场只有人设、没有近期记忆。
    */
-  function identityParts(key, { recent = true, recentTalk = false } = {}) {
+  function identityParts(key, { persona = false, recent = true, recentTalk = false } = {}) {
     const parts = [];
-    if (personaText) parts.push(`【你是谁·核心记忆】\n${personaText}`);
+    // 人设只在「新会话 / 被叫醒」时重灌一次：同一会话的后续轮次，历史里已经有了，
+    // 每次都塞会让 prompt 白涨 5000 字符（人设文件 15KB）。
+    if (persona && personaText) parts.push(`【你是谁·核心记忆】\n${personaText}`);
     if (recent) {
       const memRecent = diaryRecent(diary, key, 3, 20);
       if (memRecent) parts.push(`【最近几天你记得的事】\n${memRecent}`);
@@ -1168,7 +1170,7 @@ async function bootstrap(ctx) {
       const attState = att(key);
       const firstMeet = !state.sessions[key]?.greeted;
       if (firstMeet || attState.needsPersona) {
-        parts.push(...identityParts(key, { recentTalk: firstMeet }));
+        parts.push(...identityParts(key, { persona: true, recentTalk: firstMeet }));
         if (firstMeet) {
           state.sessions[key] = { ...(state.sessions[key] || { sessionId }), greeted: true, updatedAt: Date.now() };
           writeState(state);
@@ -1184,7 +1186,7 @@ async function bootstrap(ctx) {
       }
       // 每轮都补一段「这之前聊了什么」，否则她被问「我刚才说了什么」只能翻旧会话
       {
-        const history = historyContext(key, 12, items[0]?.t ?? Date.now());
+        const history = historyContext(key, 8, items[0]?.t ?? Date.now());
         if (history) parts.push(`【这之前群里在聊】\n${history}`);
       }
       if (needsRecall(transcript)) {
@@ -1553,7 +1555,7 @@ async function bootstrap(ctx) {
           a.needsPersona = true; // 每次从睡着被叫醒，进 prompt 时重灌一次人设
           log(`wake ${groupId}（${mentioned ? '点名' : repliedToHer ? '回复她' : ownerMedia ? '爸爸发图' : '随机'}）`);
           // 醒来第一件事：从 QQ 往上翻最近的聊天记录（不落库，只在需要时拉）
-          a.wakeHistory = await fetchGroupHistory(key, groupId, 20);
+          a.wakeHistory = await fetchGroupHistory(key, groupId, 12);
           if (a.wakeHistory) log(`wake history ${groupId}: ${a.wakeHistory.split('\n').length} 行`);
         }
         a.awakeUntil = Date.now() + activeWindowMs;
@@ -1666,7 +1668,7 @@ async function bootstrap(ctx) {
       const firstMeet = !wasGreeted;
       if (kind === 'private' || firstMeet || attState?.needsPersona) {
         // 私聊每条消息都重灌人设（旧 web 端行为）；「最近记得的事」只在新会话开场带一次，避免每轮重复
-        parts.push(...identityParts(key, { recent: firstMeet || Boolean(attState?.needsPersona), recentTalk: firstMeet }));
+        parts.push(...identityParts(key, { persona: firstMeet || Boolean(attState?.needsPersona), recent: firstMeet || Boolean(attState?.needsPersona), recentTalk: firstMeet }));
         if (firstMeet) {
           state.sessions[key] = { ...(state.sessions[key] || { sessionId }), greeted: true, updatedAt: Date.now() };
           writeState(state);
@@ -1682,7 +1684,7 @@ async function bootstrap(ctx) {
       }
       if (kind === 'group') {
         // 每轮都补一段「这之前聊了什么」（排除当前这条）
-        const history = historyContext(key, 12, Date.now() - 1000);
+        const history = historyContext(key, 8, Date.now() - 1000);
         if (history) parts.push(`【这之前群里在聊】\n${history}`);
       }
       // 只有出现回忆信号时才翻长期记忆
@@ -1707,7 +1709,7 @@ async function bootstrap(ctx) {
       }
       // 私聊接不上群里刚说的话：把最近的群聊也给她看（群和私聊是两个会话，互不串台）
       if (kind === 'private') {
-        const groupTalk = groupContextAll(12);
+        const groupTalk = groupContextAll(8);
         if (groupTalk) parts.push(`【你刚才在群里聊的】\n${groupTalk}`);
       }
       const hint = writingHint(text);
