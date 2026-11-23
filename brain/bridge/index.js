@@ -13,6 +13,7 @@ import { syncMemoryRepo, memoryRepoStatus } from '../core/memory-sync.js';
 import { StickerStore } from './stickers.js';
 import { Diary } from './diary.js';
 import { MemoryExtractor } from './memory-extractor.js';
+import { SelfDiary } from './self-diary.js';
 
 export const name = 'fish-bridge-s2';
 
@@ -694,6 +695,17 @@ async function bootstrap(ctx) {
     log,
     stateFile: process.env.FISH_S2_MEMORY_STATE || 'D:\\fish\\brain\\state\\memory-extract.json',
   });
+  // 她自己的日记：每天由她决定写不写、写什么
+  const selfDiary = new SelfDiary({
+    ctx,
+    controller,
+    store,
+    workspace: WORKSPACE,
+    log,
+    stateFile: process.env.FISH_S2_DIARY_STATE || 'D:\\fish\\brain\\state\\self-diary.json',
+    file: process.env.FISH_S2_DIARY_FILE || 'D:\\fish\\memory\\DIARY.md',
+    hour: Math.max(0, Math.min(23, Number(process.env.FISH_S2_DIARY_HOUR ?? 22))),
+  });
   const state = readState();
   // preset 换了：旧会话仍挂在旧 preset 上，清掉映射让下次消息用新 preset 重建
   if (state.preset !== PRESET_VERSION) {
@@ -734,6 +746,7 @@ async function bootstrap(ctx) {
     [path.join(DATA_DIR, 'people.json'), 'people.json'],
     [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
     [STATE_FILE, 's2-sessions.json'],
+    ['D:\\fish\\memory\\DIARY.md', 'DIARY.md'],
   ];
   const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
 
@@ -794,6 +807,11 @@ async function bootstrap(ctx) {
       // preset 升级会重建会话；补一段旧上下文，免得像刚认识
       const talk = fmtLastTalk(store, key, 24);
       if (talk) parts.push(`【你和这里上次聊到的地方】\n${talk}`);
+    }
+    if (recent) {
+      // 她自己写的日记：让她知道自己最近在想什么
+      const ownDiary = selfDiary.recent(3);
+      if (ownDiary) parts.push(`【你最近写的日记】\n${ownDiary}`);
     }
     return parts;
   }
@@ -1886,11 +1904,20 @@ async function bootstrap(ctx) {
   }, 60000);
   // 每小时检查一次「今天备份过没有」，当天已有就跳过
   const backupTimer = setInterval(runMemorySync, 3600000);
+  // 睡前问一句「想写点什么吗」；她自己决定写不写
+  const diaryEnabled = process.env.FISH_S2_DIARY !== '0';
+  const runSelfDiary = () => {
+    if (!diaryEnabled) return;
+    selfDiary.maybeWrite().catch((error) => log(`self diary error: ${error?.message ?? error}`));
+  };
+  const diaryTimer = setInterval(runSelfDiary, 3600000);
+  runSelfDiary();
   // 记忆不再定时全量扫描：每轮结束后由 scheduleMemoryJudge 按事件判断
   ctx.effect(() => () => {
     disposed = true;
     try { clearInterval(proactiveTimer); } catch {}
     try { clearInterval(backupTimer); } catch {}
+    try { clearInterval(diaryTimer); } catch {}
     try { if (reconnectTimer) clearTimeout(reconnectTimer); } catch {}
     try {
       for (const timer of memoryTimers.values()) clearTimeout(timer);

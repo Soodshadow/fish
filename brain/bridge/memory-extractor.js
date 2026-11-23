@@ -3,7 +3,7 @@
 // 旧的 extractKey()/run() 全量扫描已删除（没有任何调用点，且和 judge 重复）。
 import fs from 'node:fs';
 
-const KINDS = new Set(['fact', 'promise', 'emotion', 'impression', 'event']);
+const KINDS = new Set(['fact', 'promise', 'emotion', 'impression', 'event', 'lesson']);
 
 function readState(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return { keys: {} }; }
@@ -96,11 +96,13 @@ export class MemoryExtractor {
     const prompt = [
       '这是一段刚发生的对话。判断有没有值得长期记住的事，像人一样只记结论。',
       '只输出 JSON 数组，不要解释、不要代码块：',
-      '[{"kind":"fact|promise|emotion|impression|event","text":"一句结论：谁、发生了什么、为什么值得记","weight":0.8}]',
+      '[{"kind":"fact|promise|emotion|impression|event|lesson","text":"一句结论：谁、发生了什么、为什么值得记","weight":0.8}]',
       'weight 是这条记忆的重要程度（0.2~1.0）：约定/关系变化/强烈情绪给 0.8~1.0；',
       '普通事实/喜好给 0.4~0.7；随口一句、过几天就忘的给 0.2~0.3。',
       '规则：记忆只记会影响以后相处的事（约定、事实、喜好、关系变化、情绪节点、重要事件）；',
       '不记日常寒暄、不记流水账、不记原话；没有值得记的就输出 []。最多 3 条。',
+      'lesson 是「学到的做法或教训」：怎么接话有效、什么梗别用、这个人的雷区、什么话题冷场，',
+      '写成「下次遇到 X 就做 Y」这种以后能直接照着做的形式。',
       '例外：如果这段里有人主动找过她（@她、拍她、私聊她、点名问她），要记成一条 event，',
       '写清楚「谁、在哪个群、什么时候找她说了什么」，哪怕内容本身很普通 —— 以后被问「谁找过我」要靠它。',
       '',
