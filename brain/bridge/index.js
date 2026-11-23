@@ -816,11 +816,7 @@ async function bootstrap(ctx) {
       const talk = fmtLastTalk(store, key, 24);
       if (talk) parts.push(`【你和这里上次聊到的地方】\n${talk}`);
     }
-    if (recent) {
-      // 她自己写的日记：让她知道自己最近在想什么
-      const ownDiary = selfDiary.recent(3);
-      if (ownDiary) parts.push(`【你最近写的日记】\n${ownDiary}`);
-    }
+    // 日记不注入：那是她自己的本子，不挂嘴边。
     return parts;
   }
 
