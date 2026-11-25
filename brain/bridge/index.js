@@ -12,7 +12,7 @@ import { Store } from '../core/store.js';
 import { syncMemoryRepo, memoryRepoStatus } from '../core/memory-sync.js';
 import { StickerStore } from './stickers.js';
 import { Diary } from './diary.js';
-import { MemoryExtractor } from './memory-extractor.js';
+import { MemoryDigest } from './memory-digest.js';
 
 export const name = 'fish-bridge-s2';
 
@@ -685,14 +685,17 @@ async function bootstrap(ctx) {
   store.load();
   const stickers = new StickerStore(process.env.FISH_S2_STICKERS || 'D:\\fish\\brain\\stickers');
   const diary = new Diary(MEMORY_FILE, { halfLifeDays: 30, forgetThreshold: 0.05, forgetAfterDays: 60, log });
-  const extractor = new MemoryExtractor({
+  // 每日整理：晚上回看一整天，把一天压成几件「事情」（取代逐轮碎片提炼）
+  const memoryDigest = new MemoryDigest({
     ctx,
     controller,
     store,
     diary,
     workspace: WORKSPACE,
     log,
-    stateFile: process.env.FISH_S2_MEMORY_STATE || 'D:\\fish\\brain\\state\\memory-extract.json',
+    stateFile: process.env.FISH_S2_DIGEST_STATE || 'D:\\fish\\brain\\state\\memory-digest.json',
+    hour: Math.max(0, Math.min(23, Number(process.env.FISH_S2_DIGEST_HOUR ?? 23))),
+    maxItems: Math.max(1, Math.min(12, Number(process.env.FISH_S2_DIGEST_MAX ?? 6))),
   });
   const state = readState();
   // preset 换了：旧会话仍挂在旧 preset 上，清掉映射让下次消息用新 preset 重建
@@ -1010,30 +1013,6 @@ async function bootstrap(ctx) {
 
   // 一件事说完后（3 分钟不再有新动静）判断一次值不值得记，不做定时全量扫描
   const MEMORY_JUDGE_DELAY = 180000;
-  function scheduleMemoryJudge(key) {
-    // 开关每次都读（带 5 秒缓存），改 config.json 不用重启
-    if (readBrainConfig().memoryExtract === false) return;
-    // 已经在排队就不重排：以前活跃会话会被自己的下一条消息不断推迟，永远轮不到
-    if (memoryTimers.has(key)) return;
-    const timer = setTimeout(async () => {
-      memoryTimers.delete(key);
-      try {
-        const lastT = extractor.lastT(key);
-        const rows = store.searchMessages({ key, limit: 60 })
-          .filter((message) => message.t > lastT && String(message.text || '').trim())
-          .slice(0, 20)
-          .sort((a, b) => a.t - b.t);
-        if (rows.length < 2) return;
-        const transcript = rows.map((message) => `${message.role === 'assistant' ? '她' : '对方'}：${message.text}`).join('\n');
-        const added = await extractor.judge(key, transcript, rows[rows.length - 1].t);
-        log(`memory judge ${key}: +${added}`);
-      } catch (error) {
-        log(`memory judge error: ${error?.message ?? error}`);
-      }
-    }, MEMORY_JUDGE_DELAY);
-    memoryTimers.set(key, timer);
-  }
-
   // ── 群消息合并：普通消息攒 15 秒合成一次判断，@/名字/被回复例外 ──
   const BATCH_WAIT_MS = Math.max(3000, Number(process.env.FISH_S2_BATCH_MS ?? brainCfg.batchWaitMs ?? 15000));
   const REPLY_COOLDOWN_MS = Math.max(0, Number(process.env.FISH_S2_COOLDOWN_MS ?? brainCfg.replyCooldownMs ?? 20000));
@@ -1337,8 +1316,6 @@ async function bootstrap(ctx) {
     } else {
       log(`reply not delivered in ${context.key}, not memorised`);
     }
-    // 只有她真的说了话，才在安静 3 分钟后判断值不值得记；纯沉默不花这次钱
-    if (sent) scheduleMemoryJudge(context.key);
   }, { global: true });
 
   /** 群聊引用第一条；多段话拆成多条发，模拟真人的分条节奏。[SILENT] = 她选择不说话。 */
@@ -1923,11 +1900,19 @@ async function bootstrap(ctx) {
   }, 60000);
   // 每小时检查一次「今天备份过没有」，当天已有就跳过
   const backupTimer = setInterval(runMemorySync, 3600000);
-  // 记忆不再定时全量扫描：每轮结束后由 scheduleMemoryJudge 按事件判断
+  // 每天 23 点后整理一次记忆；当天没整理成功就下一小时重试
+  const digestEnabled = process.env.FISH_S2_DIGEST !== '0';
+  const runDigest = () => {
+    if (!digestEnabled) return;
+    memoryDigest.maybeDigest().catch((error) => log(`memory digest error: ${error?.message ?? error}`));
+  };
+  const digestTimer = setInterval(runDigest, 3600000);
+  runDigest();
   ctx.effect(() => () => {
     disposed = true;
     try { clearInterval(proactiveTimer); } catch {}
     try { clearInterval(backupTimer); } catch {}
+    try { clearInterval(digestTimer); } catch {}
     try { if (reconnectTimer) clearTimeout(reconnectTimer); } catch {}
     try {
       for (const timer of memoryTimers.values()) clearTimeout(timer);
