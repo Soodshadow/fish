@@ -23,6 +23,7 @@ fish/
 │  └─ config.example.json        #   配置模板（复制为 config.json）
 │
 ├─ snow/                         # SnowLuma 启动适配（第三方，本体需自行安装）
+│  ├─ preset/                    #   她的人格（fish-chat preset，部署时贴进 profile）
 ├─ roles/                        # 通用角色卡
 ├─ acp-provider.yml              # DSH 的 provider 覆盖
 ├─ DEPLOY.md                     # 部署指南
