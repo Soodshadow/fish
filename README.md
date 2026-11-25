@@ -18,12 +18,12 @@ fish/
 │  ├─ bridge/                    #   QQ ⇄ DSH 会话：收消息、组 prompt、发回复
 │  ├─ core/                      #   共享消息库（append-only JSONL）
 │  ├─ plugin/                    #   DSH 左侧栏「记忆」面板（宿主 + 客户端）
-│  ├─ scripts/                   #   运维脚本（预设自检、旧记忆导入）
-│  ├─ test/                      #   回归测试（91 项，假 QQ，不连真实网关）
+│  ├─ scripts/                   #   运维脚本（预设自检、旧记忆导入、会话注册）
+│  ├─ test/                      #   回归测试（100+ 项，假 QQ，不连真实网关）
+│  ├─ preset/                    #   她的人格（fish-chat preset，部署时贴进 profile）
 │  └─ config.example.json        #   配置模板（复制为 config.json）
 │
 ├─ snow/                         # SnowLuma 启动适配（第三方，本体需自行安装）
-│  ├─ preset/                    #   她的人格（fish-chat preset，部署时贴进 profile）
 ├─ roles/                        # 通用角色卡
 ├─ acp-provider.yml              # DSH 的 provider 覆盖
 ├─ DEPLOY.md                     # 部署指南
