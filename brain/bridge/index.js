@@ -737,6 +737,7 @@ async function bootstrap(ctx) {
     [path.join(DATA_DIR, 'people.json'), 'people.json'],
     [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
     [STATE_FILE, 's2-sessions.json'],
+    ['D:\\fish\\memory\\fish-chat.patch.yml', 'fish-chat.patch.yml'],
   ];
   const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
 
