@@ -13,7 +13,6 @@ import { syncMemoryRepo, memoryRepoStatus } from '../core/memory-sync.js';
 import { StickerStore } from './stickers.js';
 import { Diary } from './diary.js';
 import { MemoryExtractor } from './memory-extractor.js';
-import { SelfDiary } from './self-diary.js';
 
 export const name = 'fish-bridge-s2';
 
@@ -695,17 +694,6 @@ async function bootstrap(ctx) {
     log,
     stateFile: process.env.FISH_S2_MEMORY_STATE || 'D:\\fish\\brain\\state\\memory-extract.json',
   });
-  // 她自己的日记：每天由她决定写不写、写什么
-  const selfDiary = new SelfDiary({
-    ctx,
-    controller,
-    store,
-    workspace: WORKSPACE,
-    log,
-    stateFile: process.env.FISH_S2_DIARY_STATE || 'D:\\fish\\brain\\state\\self-diary.json',
-    dir: process.env.FISH_S2_DIARY_DIR || 'D:\\fish\\memory\\diary',
-    hour: Math.max(0, Math.min(23, Number(process.env.FISH_S2_DIARY_HOUR ?? 22))),
-  });
   const state = readState();
   // preset 换了：旧会话仍挂在旧 preset 上，清掉映射让下次消息用新 preset 重建
   if (state.preset !== PRESET_VERSION) {
@@ -747,15 +735,6 @@ async function bootstrap(ctx) {
     [path.join(DATA_DIR, 'conversations.json'), 'conversations.json'],
     [STATE_FILE, 's2-sessions.json'],
   ];
-  // 日记本是一个文件，放在 memory/diary/ 下
-  const DIARY_DIR = process.env.FISH_S2_DIARY_DIR || 'D:\\fish\\memory\\diary';
-  const DIARY_BOOK = process.env.FISH_S2_DIARY_BOOK || '日记.md';
-  function memorySources() {
-    const list = [...MEMORY_REPO_SOURCES];
-    const book = path.join(DIARY_DIR, DIARY_BOOK);
-    if (fs.existsSync(book)) list.push([book, `diary/${DIARY_BOOK}`]);
-    return list;
-  }
   const memorySyncEnabled = process.env.FISH_S2_MEMORY_SYNC !== '0' && brainCfg.memorySync !== false;
 
   /** ISO 周的周一日期，作为「本周」的键。 */
@@ -782,7 +761,7 @@ async function bootstrap(ctx) {
     try {
       const result = syncMemoryRepo({
         workDir: MEMORY_REPO_DIR,
-        sources: memorySources(),
+        sources: MEMORY_REPO_SOURCES,
         remote: MEMORY_REPO_URL,
         log,
       });
@@ -1716,8 +1695,6 @@ async function bootstrap(ctx) {
       if (kind === 'private') {
         const groupTalk = groupContextAll(8);
         if (groupTalk) parts.push(`【你刚才在群里聊的】\n${groupTalk}`);
-        // 她自己不知道日记本存在（日记是后台写的，不进这个会话），给个位置就够了，不念内容
-        parts.push('【你自己的东西】日记本在 D:\\fish\\memory\\diary\\日记.md；那是你自己的本子，想写就去写，不用跟谁汇报。');
       }
       const hint = writingHint(text);
       if (hint) parts.push(hint);
@@ -1946,20 +1923,11 @@ async function bootstrap(ctx) {
   }, 60000);
   // 每小时检查一次「今天备份过没有」，当天已有就跳过
   const backupTimer = setInterval(runMemorySync, 3600000);
-  // 睡前问一句「想写点什么吗」；她自己决定写不写
-  const diaryEnabled = process.env.FISH_S2_DIARY !== '0';
-  const runSelfDiary = () => {
-    if (!diaryEnabled) return;
-    selfDiary.maybeWrite().catch((error) => log(`self diary error: ${error?.message ?? error}`));
-  };
-  const diaryTimer = setInterval(runSelfDiary, 3600000);
-  runSelfDiary();
   // 记忆不再定时全量扫描：每轮结束后由 scheduleMemoryJudge 按事件判断
   ctx.effect(() => () => {
     disposed = true;
     try { clearInterval(proactiveTimer); } catch {}
     try { clearInterval(backupTimer); } catch {}
-    try { clearInterval(diaryTimer); } catch {}
     try { if (reconnectTimer) clearTimeout(reconnectTimer); } catch {}
     try {
       for (const timer of memoryTimers.values()) clearTimeout(timer);
