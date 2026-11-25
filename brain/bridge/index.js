@@ -1716,6 +1716,8 @@ async function bootstrap(ctx) {
       if (kind === 'private') {
         const groupTalk = groupContextAll(8);
         if (groupTalk) parts.push(`【你刚才在群里聊的】\n${groupTalk}`);
+        // 她自己不知道日记本存在（日记是后台写的，不进这个会话），给个位置就够了，不念内容
+        parts.push('【你自己的东西】日记本在 D:\\fish\\memory\\diary\\日记.md；那是你自己的本子，想写就去写，不用跟谁汇报。');
       }
       const hint = writingHint(text);
       if (hint) parts.push(hint);
