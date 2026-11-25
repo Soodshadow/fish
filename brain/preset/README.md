@@ -1,45 +1,33 @@
-# 小鱼的「人格」
+# preset（人格）放哪里
 
-这个文件是 `fish-chat` agent preset —— 她说话的方式、脾气、分条节奏、什么时候闭嘴，全在这里。
+**这个目录不放具体人设。**
 
-**注意**：它不在插件代码里，而在 **DSH 的 profile 配置**里：
+ 是 agent preset —— 决定她说话的方式、脾气、分条节奏、什么时候闭嘴。
+它属于「这个人是谁」，不属于「插件怎么工作」。所以：
 
-```
-C:\Users\<你>\.dsh\profiles\desktop\cordis.patch.yml
-```
+| 内容 | 放哪 |
+| --- | --- |
+| 插件代码、桥接逻辑 | 本仓库  |
+| **她的 preset（人格）** | **私密记忆仓库**  的  |
+| 她的人设蓝图、记忆、聊天记录 | 同上（私密记忆仓库） |
 
-## 为什么要单独放在这
+## 为什么
 
-preset 的内容会被**冻结进会话的系统提示词**（会话创建那一刻）。改了 preset 不会影响已经存在的会话，必须让桥接重建会话才生效（看 `brain/scripts/check-preset.mjs` 和 `PRESET_VERSION`）。
+开源出去的是「管家这套管道」。下载的人想让它长成什么样，由他自己写 preset 决定 ——
+仓库里带一份写死的性格，别人就得先删再改。
 
-所以它不是"运行时代码"，而是"部署时贴进去的配置"。
+## 部署时怎么接上
 
-## 部署时怎么装
+1. 从记忆仓库拿到 （或自己写一份）
+2. 追加到 profile 的  末尾：
 
-把本文件的内容**追加**到你的 profile 的 `cordis.patch.yml` 末尾（保持缩进）：
+   
 
-```bash
-# Windows PowerShell
-Get-Content brain\preset\fish-chat.patch.yml | Add-Content "$env:USERPROFILE\.dsh\profiles\desktop\cordis.patch.yml"
-```
-
-然后重启 DSH。桥接启动时会发现 preset 版本变化，自动清掉旧会话映射，下一条消息用新人设重建。
-
-## 改了 preset 之后
-
-1. 修改本文件（或在 profile 里直接改）
-2. 同步到 profile
-3. 把 `brain/bridge/index.js` 里的 `PRESET_VERSION` 加一（例如 `fish-chat:9` → `fish-chat:10`）
+3. 改  里的 （涨一个数字，强制重建会话）
 4. 重启 DSH
 
-第 3 步是必须的：不涨版本号，旧会话会一直挂着旧提示词。
+## 不涨版本号会怎样
 
-## 它和记忆的分工
-
-| | 在哪 | 管什么 |
-|---|---|---|
-| 这个 preset | profile 配置 | 怎么说话（语气、分条、社交规则） |
-| `MEMORY-BLUEPRINT.md` | 私密记忆仓库 | 她是谁（身份、关系、锚点、核心记忆） |
-| `MEMORY-ARCHIVE.md` | 私密记忆仓库 | 她记得什么（按天积累的事） |
-
-前两个是她"像人"的基础，缺一个都会变成普通助手。
+preset 的内容在**会话创建那一刻**就冻结进系统提示词了。
+不涨 ，旧会话会一直用旧提示词，改了也看不出变化。
+可以用  检查当前会话装的是哪一版。
