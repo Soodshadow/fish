@@ -1517,7 +1517,12 @@ async function bootstrap(ctx) {
       const ownerMedia = hasMedia && String(event.user_id) === OWNER_QQ;
       // 爸爸在群里发文字也算「在跟她说话」。以前只把「发图」当信号，
       // 结果他在群里连说四五句，她一句都不接，非得 @ 才醒。
-      const ownerText = !hasMedia && String(event.user_id) === OWNER_QQ && String(text).trim().length > 0;
+      // 「好吧」「嗯」「哦」这类应答不值得叫醒她（一次调用就为回它一个 [SILENT]）
+      const OWNER_TRIVIAL = /^(?:好|好吧|嗯|嗯嗯|哦|噢|喔|行|行吧|可以|对|是的|真的|哈哈|草|6|1|2|ok)[。！!?～~]*$/i;
+      const ownerText = !hasMedia
+        && String(event.user_id) === OWNER_QQ
+        && String(text).trim().length > 0
+        && !OWNER_TRIVIAL.test(String(text).trim());
       const mentioned = isAwake(event, selfId, readWakeWords());
       // 只认「引用的是她自己发过的消息」。以前任何 reply 段都算「回复她」，
       // 别人互相引用也会把她叫醒，这是群里乱插话的主要来源之一。

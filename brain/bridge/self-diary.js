@@ -111,7 +111,7 @@ export class SelfDiary {
   collectDayMaterial(day) {
     const start = new Date(`${day}T00:00:00`).getTime();
     const messages = Array.isArray(this.store?.messages) ? this.store.messages : [];
-    const rows = messages.filter((m) => Number(m.t) >= start).slice(-160);
+    const rows = messages.filter((m) => Number(m.t) >= start).slice(-100);
     return rows.map((m) => {
       const d = new Date(m.t);
       const stamp = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -164,7 +164,7 @@ export class SelfDiary {
       const prompt = [
         '这是你今天经历的事（你和别人的对话节选）：',
         '',
-        material.slice(-6000),
+        material.slice(-3500),
         '',
         '现在是晚上。你想写点什么吗？日记、想法、想对谁说的话都行。',
         '写不写、写多少、写什么，都由你决定。',
